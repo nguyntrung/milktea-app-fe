@@ -346,7 +346,7 @@ export default function Orders() {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return format(date, 'dd/MM/yyyy', { locale: vi });
+      return format(date, 'HH:mm - dd/MM/yyyy', { locale: vi });
     } catch {
       return dateString;
     }

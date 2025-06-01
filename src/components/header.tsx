@@ -123,7 +123,7 @@ function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps)
         </>
       ) : (
         <div className="flex flex-col space-y-2 px-4">
-          <Button variant="ghost" onClick={() => { navigate("/signup"); setIsMenuOpen(false); }} className="justify-start">Đăng ký</Button>
+          <Button variant="ghost" onClick={() => { navigate("/sign-in"); setIsMenuOpen(false); }} className="justify-start">Đăng ký</Button>
           <Button variant="outline" onClick={() => { navigate("/sign-in"); setIsMenuOpen(false); }} className="justify-start">Đăng nhập</Button>
         </div>
       )}
@@ -178,8 +178,8 @@ function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps)
           {!isMobile && (
             !isLoggedIn ? (
               <>
-                <Button variant="ghost" onClick={() => navigate("/signup")}>Đăng ký</Button>
-                <Button variant="outline" onClick={() => navigate("/sign-in")}>Đăng nhập</Button>
+                <Button variant="ghost" onClick={() => navigate("/sign-in")} className="h-12 px-5 rounded-full">Đăng ký</Button>
+                <Button variant="outline" onClick={() => navigate("/sign-in")} className="h-12 px-5 rounded-full">Đăng nhập</Button>
               </>
             ) : (
               <DropdownMenu>

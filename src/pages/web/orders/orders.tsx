@@ -125,7 +125,7 @@ export default function Orders() {
                   // Xử lý trường hợp maSanPham là object
                   let tenSanPham = "Sản phẩm";
                   let idSanPham = "";
-                  let hinhAnh = detail.hinhAnh;
+                  const hinhAnh = detail.hinhAnh;
                   
                   if (typeof detail.maSanPham === 'object' && detail.maSanPham !== null) {
                     tenSanPham = detail.maSanPham.ten || "Sản phẩm";
@@ -133,20 +133,6 @@ export default function Orders() {
                   } else {
                     idSanPham = detail.maSanPham as string;
                     tenSanPham = detail.ten || "Sản phẩm";
-                  }
-                  
-                  // Nếu không có hình ảnh, gọi API products để lấy
-                  if (!hinhAnh) {
-                    try {
-                      const productResponse = await getData(`/api/products/${idSanPham}`);
-                      if (productResponse.success && productResponse.data) {
-                        hinhAnh = productResponse.data.hinhAnh && productResponse.data.hinhAnh.length > 0 
-                          ? productResponse.data.hinhAnh[0] 
-                          : undefined;
-                      }
-                    } catch (error) {
-                      console.error("Lỗi khi lấy thông tin sản phẩm:", error);
-                    }
                   }
                   
                   return {

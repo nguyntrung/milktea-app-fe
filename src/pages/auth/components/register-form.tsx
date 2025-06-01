@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Chrome } from "lucide-react"
 import { postData } from "@/lib/api"
 
 interface RegisterFormProps extends React.ComponentPropsWithoutRef<"form"> {
@@ -20,7 +19,6 @@ export function RegisterForm({
   ...props
 }: RegisterFormProps) {
   const navigate = useNavigate();
-  const [hoTen, setHoTen] = useState("");
   const [email, setEmail] = useState("");
   const [matKhau, setMatKhau] = useState("");
   const [xacNhanMatKhau, setXacNhanMatKhau] = useState("");
@@ -40,7 +38,7 @@ export function RegisterForm({
     }
 
     try {
-      const response = await postData("/api/auth/register", { hoTen, email, matKhau });
+      const response = await postData("/api/auth/register", { email, matKhau });
       
       console.log("API response:", response);
       
@@ -70,7 +68,7 @@ export function RegisterForm({
   return (
     <form className={cn("flex flex-col gap-6", className)} {...props} onSubmit={handleSubmit}>
       <div className="flex flex-col items-center gap-2 text-center">
-        <h1 className="text-2xl font-bold">Đăng ký tài khoản</h1>
+        <h1 className="text-2xl font-medium">Đăng ký tài khoản</h1>
         <p className="text-balance text-sm text-muted-foreground">
           Nhập thông tin của bạn để đăng ký
         </p>
@@ -82,22 +80,12 @@ export function RegisterForm({
       )}
       <div className="grid gap-6">
         <div className="grid gap-2">
-          <Label htmlFor="hoTen">Họ tên</Label>
-          <Input 
-            id="hoTen" 
-            type="text" 
-            placeholder="Nguyễn Văn A" 
-            required 
-            value={hoTen}
-            onChange={(e) => setHoTen(e.target.value)}
-          />
-        </div>
-        <div className="grid gap-2">
           <Label htmlFor="email">Email</Label>
           <Input 
             id="email" 
             type="email" 
             placeholder="example@gmail.com" 
+            className="h-12"
             required 
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -110,6 +98,7 @@ export function RegisterForm({
           <Input 
             id="password" 
             type="password" 
+            className="h-12"
             required 
             value={matKhau}
             onChange={(e) => setMatKhau(e.target.value)}
@@ -122,12 +111,13 @@ export function RegisterForm({
           <Input 
             id="confirmPassword" 
             type="password" 
+            className="h-12"
             required 
             value={xacNhanMatKhau}
             onChange={(e) => setXacNhanMatKhau(e.target.value)}
           />
         </div>
-        <Button type="submit" className="w-full cursor-pointer" disabled={isLoading}>
+        <Button type="submit" className="w-full h-12 cursor-pointer" disabled={isLoading}>
           {isLoading ? "Đang đăng ký..." : "Đăng ký"}
         </Button>
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
@@ -135,8 +125,11 @@ export function RegisterForm({
             Hoặc tiếp tục với
           </span>
         </div>
-        <Button variant="outline" className="w-full cursor-pointer" type="button">
-          <Chrome />
+        <Button variant="outline" className="w-full h-12 cursor-pointer" type="button">
+          <img src="https://images.seeklogo.com/logo-png/15/2/google-chrome-logo-png_seeklogo-157975.png"
+            alt="Google logo" 
+            className="w-5 h-5"
+          />
           Đăng ký với Google
         </Button>
       </div>

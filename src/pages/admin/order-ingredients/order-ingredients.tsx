@@ -1,10 +1,6 @@
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
-import { getData, postData, putData } from "@/lib/api";
-import { Eye, Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { getData } from "@/lib/api";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -22,94 +18,76 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import OrderIngredientsDialog from "./components/order-ingredients-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
 interface OrderIngredient {
   _id: string;
   maNhaCungCap: string;
+  tenNhaCungCap?: string;
   ngayDat: string;
   thoiGianCanGiao: string;
-  nguyenLieu: {
+  nguyenLieu: Array<{
     maNguyenLieu: string;
     soLuong: number;
-    donGia?: number;
-    thanhTien?: number;
+    donGia: number;
+    thanhTien: number;
     _id: string;
-  }[];
-  trangThai: "DATAO" | "DANHAP" | "DAHUY";
+  }>;
+  tongTien: number;
+  ngayNhap: string;
+  trangThai: string;
+  ghiChu: string;
   nguoiDat: string;
-  ngayTao?: string;
-  ngayCapNhat?: string;
-  ngayNhap?: string;
-  nguoiNhap?: string;
-  tongTien?: number;
-  ghiChu?: string;
-}
-
-interface Supplier {
-  _id: string;
-  ten: string;
-}
-
-interface Ingredient {
-  _id: string;
-  ten: string;
-  donViTinh: string;
-  maNhaCungCap: {
-    _id: string;
-    ten: string;
-  }[];
-  hoatDong: boolean;
-  nguyenLieuHaoHut: boolean;
+  nguoiNhap: string | null;
   ngayTao: string;
   ngayCapNhat: string;
 }
 
-const orderStatusMap = {
-  DATAO: { label: "Đã đặt", color: "bg-blue-100 text-blue-800" },
-  DANHAP: { label: "Đã nhập", color: "bg-green-100 text-green-800" },
-  DAHUY: { label: "Đã hủy", color: "bg-red-100 text-red-800" },
-};
-
 export default function OrderIngredients() {
   const [orders, setOrders] = useState<OrderIngredient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<OrderIngredient | undefined>();
-  const [dialogMode, setDialogMode] = useState<"create" | "import">("create");
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
 
   // Lấy danh sách đơn đặt nguyên liệu
   const fetchData = async () => {
     try {
       setLoading(true);
-      setError(null);
-
+      
       // Lấy danh sách đơn đặt nguyên liệu
-      const ordersResponse = await getData("/api/order-ingredients");
-      if (ordersResponse.success && Array.isArray(ordersResponse.data)) {
-        setOrders(ordersResponse.data || []);
-      } else {
-        throw new Error("Không thể tải danh sách đơn đặt nguyên liệu");
+      const response = await getData("/api/order-ingredients");
+      if (response.success && Array.isArray(response.data)) {
+        // Xử lý dữ liệu để hiển thị tên nhà cung cấp
+        const ordersWithSupplierNames = await Promise.all(
+          response.data.map(async (order: OrderIngredient) => {
+            try {
+              // Lấy thông tin nhà cung cấp
+              const supplierResponse = await getData(`/api/suppliers/${order.maNhaCungCap}`);
+              if (supplierResponse.success && supplierResponse.data) {
+                return {
+                  ...order,
+                  tenNhaCungCap: supplierResponse.data.ten
+                };
+              }
+              return order;
+            } catch (error) {
+              console.error("Lỗi khi lấy thông tin nhà cung cấp:", error);
+              return order;
+            }
+          })
+        );
+        
+        setOrders(ordersWithSupplierNames || []);
       }
-
-      // Lấy danh sách nhà cung cấp
-      const suppliersResponse = await getData("/api/suppliers");
-      if (suppliersResponse.success && Array.isArray(suppliersResponse.data)) {
-        setSuppliers(suppliersResponse.data || []);
-      }
-
-      // Lấy danh sách nguyên liệu
-      const ingredientsResponse = await getData("/api/ingredients");
-      if (ingredientsResponse.success && Array.isArray(ingredientsResponse.data)) {
-        setIngredients(ingredientsResponse.data || []);
-      }
+      
+      setError(null);
     } catch (error) {
       console.error("Lỗi khi tải dữ liệu:", error);
-      setError("Không thể tải danh sách đơn đặt nguyên liệu");
+      setError("Không thể tải danh sách đơn đặt nguyên liệu. Vui lòng thử lại sau.");
     } finally {
       setLoading(false);
     }
@@ -119,151 +97,100 @@ export default function OrderIngredients() {
     fetchData();
   }, []);
 
-  // Format ngày
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN");
-  };
-
-  // Lấy tên nhà cung cấp từ ID
-  const getSupplierName = (id: string) => {
-    const supplier = suppliers.find(s => s._id === id);
-    return supplier ? supplier.ten : id;
-  };
-
-  // Xử lý tạo đơn đặt nguyên liệu mới
-  const handleCreateOrder = () => {
-    setSelectedOrder(undefined);
-    setDialogMode("create");
-    setDialogOpen(true);
-  };
-
-  // Xử lý xem chi tiết đơn đặt nguyên liệu
-  const handleViewOrder = (order: OrderIngredient) => {
-    setSelectedOrder(order);
-    setDialogMode(order.trangThai === "DATAO" ? "import" : "create");
-    setDialogOpen(true);
-  };
-
-  // Xử lý submit đơn đặt nguyên liệu
-  const handleSubmitOrder = async (data: any, mode: "create" | "import") => {
-    try {
-      if (mode === "create") {
-        // Nếu là tạo mới
-        if (!selectedOrder) {
-          await postData("/api/order-ingredients", data);
-          toast.success("Tạo đơn đặt nguyên liệu thành công");
-        } 
-        // Nếu là cập nhật đơn đã tồn tại
-        else {
-          await putData(`/api/order-ingredients/${selectedOrder._id}`, {
-            ...data,
-            _id: selectedOrder._id,
-          });
-          toast.success("Cập nhật đơn đặt nguyên liệu thành công");
-        }
-      } else if (mode === "import") {
-        // Nếu là nhập nguyên liệu
-        if (selectedOrder) {
-          await putData(`/api/order-ingredients/${selectedOrder._id}/import`, {
-            ...data,
-            _id: selectedOrder._id,
-          });
-          
-          toast.success("Nhập nguyên liệu thành công");
-        }
-      }
-      
-      // Tải lại danh sách sau khi thêm/sửa
-      fetchData();
-    } catch (error) {
-      console.error("Lỗi khi xử lý đơn đặt nguyên liệu:", error);
-      toast.error("Có lỗi xảy ra khi xử lý đơn đặt nguyên liệu");
-      throw error;
-    }
-  };
-
   // Định nghĩa cột cho bảng
   const columns: ColumnDef<OrderIngredient>[] = [
     {
-      accessorKey: "maNhaCungCap",
+      accessorKey: "stt",
+      header: () => <div className="text-center">STT</div>,
+      cell: ({ row }) => <div className="text-center">{row.index + 1}</div>,
+    },
+    {
+      accessorKey: "_id",
+      header: "Mã đơn",
+      cell: ({ row }) => <div>{row.getValue("_id")}</div>,
+    },
+    {
+      accessorKey: "tenNhaCungCap",
       header: "Nhà cung cấp",
-      cell: ({ row }) => {
-        const supplierId = row.getValue("maNhaCungCap") as string;
-        return <div>{getSupplierName(supplierId)}</div>;
-      },
+      cell: ({ row }) => <div>{row.getValue("tenNhaCungCap") || "Không xác định"}</div>,
     },
     {
       accessorKey: "ngayDat",
       header: "Ngày đặt",
       cell: ({ row }) => {
-        const date = row.getValue("ngayDat") as string;
-        return <div>{formatDate(date)}</div>;
+        const date = new Date(row.getValue("ngayDat"));
+        return <div>{format(date, "dd/MM/yyyy", { locale: vi })}</div>;
       },
     },
     {
       accessorKey: "thoiGianCanGiao",
       header: "Thời gian cần giao",
       cell: ({ row }) => {
-        const date = row.getValue("thoiGianCanGiao") as string;
-        return <div>{formatDate(date)}</div>;
-      },
-    },
-    {
-      id: "soMatHang",
-      header: "Số mặt hàng",
-      cell: ({ row }) => {
-        const order = row.original;
-        return <div>{order.nguyenLieu.length}</div>;
+        const date = new Date(row.getValue("thoiGianCanGiao"));
+        return <div>{format(date, "dd/MM/yyyy", { locale: vi })}</div>;
       },
     },
     {
       accessorKey: "tongTien",
       header: "Tổng tiền",
       cell: ({ row }) => {
-        const tongTien = row.original.tongTien;
-        return tongTien ? (
-          <div>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tongTien)}</div>
-        ) : (
-          <div>-</div>
-        );
-      },
-    },
-    {
-      accessorKey: "ghiChu",
-      header: "Ghi chú",
-      cell: ({ row }) => {
-        const ghiChu = row.original.ghiChu;
-        return <div>{ghiChu || "-"}</div>;
+        const amount = parseFloat(row.getValue("tongTien"));
+        const formatted = new Intl.NumberFormat("vi-VN", {
+          style: "currency",
+          currency: "VND"
+        }).format(amount);
+        return <div className="font-medium">{formatted}</div>;
       },
     },
     {
       accessorKey: "trangThai",
       header: "Trạng thái",
       cell: ({ row }) => {
-        const status = row.getValue("trangThai") as keyof typeof orderStatusMap;
-        const statusInfo = orderStatusMap[status] || { label: status, color: "bg-gray-100 text-gray-800" };
+        const status = row.getValue("trangThai") as string;
+        let statusClass = "";
+        let statusText = "";
+        
+        switch(status) {
+          case "daDuyet":
+            statusClass = "bg-green-100 text-green-800";
+            statusText = "Đã duyệt";
+            break;
+          case "dangXuLy":
+            statusClass = "bg-blue-100 text-blue-800";
+            statusText = "Đang xử lý";
+            break;
+          case "daHuy":
+            statusClass = "bg-red-100 text-red-800";
+            statusText = "Đã hủy";
+            break;
+          case "daNhap":
+            statusClass = "bg-purple-100 text-purple-800";
+            statusText = "Đã nhập";
+            break;
+          default:
+            statusClass = "bg-gray-100 text-gray-800";
+            statusText = status;
+        }
         
         return (
-          <Badge className={statusInfo.color}>
-            {statusInfo.label}
-          </Badge>
+          <div className={`inline-block px-2 py-1 rounded-md ${statusClass}`}>
+            {statusText}
+          </div>
         );
       },
     },
     {
       id: "actions",
-      header: "Thao tác",
+      header: () => <div className="text-center">Thao tác</div>,
       cell: ({ row }) => {
         const order = row.original;
         return (
-          <div className="flex items-center">
+          <div className="text-center">
             <Button 
               variant="ghost" 
-              size="icon" 
-              className="cursor-pointer hover:text-primary"
-              onClick={() => handleViewOrder(order)}
+              size="icon"
+              onClick={() => console.log("Xem chi tiết đơn", order._id)}
+              title="Xem chi tiết"
             >
               <Eye className="h-4 w-4" />
             </Button>
@@ -286,112 +213,105 @@ export default function OrderIngredients() {
   });
 
   return (
-    <div className="bg-card h-fit w-full rounded-md p-3 shadow-md">
-      <h3 className="text-2xl font-bold mb-3">Danh sách đơn đặt nguyên liệu</h3>
-      
-      {loading && orders.length === 0 ? (
-        <div className="text-center py-4">Đang tải dữ liệu...</div>
-      ) : error ? (
-        <div className="text-red-500 py-4">{error}</div>
-      ) : (
-        <div className="w-full">
-          <div className="flex items-center py-4">
-            <Input
-              placeholder="Tìm kiếm theo nhà cung cấp..."
-              value={(table.getColumn("maNhaCungCap")?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn("maNhaCungCap")?.setFilterValue(event.target.value)
-              }
-              className="max-w-sm"
-            />
-            <Button 
-              variant="default" 
-              className="ml-auto cursor-pointer"
-              onClick={handleCreateOrder}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Tạo đơn đặt hàng
-            </Button>
-          </div>
-          <span className="text-foreground font-medium">
-            {table.getFilteredRowModel().rows.length} đơn đặt hàng
-          </span>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id}>
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
+    <Card className='bg-background rounded-lg shadow-md mb-3'>
+      <CardHeader className="mt-4">
+        <CardTitle>Danh sách đơn đặt nguyên liệu</CardTitle>
+        <CardDescription className="flex justify-between">
+          Quản lý đơn đặt nguyên liệu từ nhà cung cấp
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        {loading && orders.length === 0 ? (
+          <div className="text-center py-4">Đang tải dữ liệu...</div>
+        ) : error ? (
+          <div className="text-destructive py-4">{error}</div>
+        ) : (
+          <div className="w-full">
+            <div className="flex items-center py-4">
+              <Input
+                placeholder="Tìm kiếm theo nhà cung cấp..."
+                value={(table.getColumn("tenNhaCungCap")?.getFilterValue() as string) ?? ""}
+                onChange={(event) =>
+                  table.getColumn("tenNhaCungCap")?.setFilterValue(event.target.value)
+                }
+                className="max-w-sm"
+              />
+            </div>
+            <span className="text-foreground font-medium">
+              {table.getFilteredRowModel().rows.length} đơn đặt nguyên liệu
+            </span>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center"
-                    >
-                      Không có dữ liệu đơn đặt nguyên liệu
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex items-center justify-end space-x-2 py-4">
-            <div className="space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                Trước
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                Sau
-              </Button>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center"
+                      >
+                        Không có dữ liệu đơn đặt nguyên liệu
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              <div className="flex items-center justify-between p-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Hiển thị {table.getRowModel().rows.length} / {orders.length} đơn đặt nguyên liệu
+                </div>
+                <div className="space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <ChevronLeft />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <ChevronRight />
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Dialog đặt/nhập nguyên liệu */}
-      <OrderIngredientsDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        order={selectedOrder}
-        onSubmit={handleSubmitOrder}
-        mode={dialogMode}
-      />
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

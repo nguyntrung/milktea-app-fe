@@ -3,6 +3,7 @@ import axios from 'axios';
 // Tạo instance
 const api = axios.create({
   baseURL: 'https://trasua.up.railway.app',
+  // baseURL: 'http://localhost:5000',
   timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
