@@ -3,10 +3,10 @@ import { LoginForm } from "./components/login-form";
 import { RegisterForm } from "./components/register-form";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-interface SignInProps {
-  setIsLoggedIn: (value: boolean) => void;
-  setIsAdmin: (value: boolean) => void;
-}
+export type SignInProps = {
+  setIsLoggedIn: (val: boolean) => void;
+  setIsAdmin: (val: boolean) => void;
+};
 
 export default function AuthPage({ setIsLoggedIn, setIsAdmin }: SignInProps) {
   const [activeTab, setActiveTab] = useState("login");

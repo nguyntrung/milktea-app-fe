@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getData, postData, putData } from "@/lib/api";
-import { toast } from "sonner";
+//import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -111,7 +111,7 @@ export default function IngredientsPage() {
   };
 
   // Hàm lấy tên nhà cung cấp từ ID
-  const getSupplierNames = (supplierIds: string[] | any[]) => {
+  const getSupplierNames = (supplierIds: Array<string | { _id: string; ten: string }>) => {
     if (!supplierIds || !supplierIds.length) return "Không có";
     
     return supplierIds.map(item => {
@@ -308,7 +308,12 @@ export default function IngredientsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         ingredient={selectedIngredient}
-        onSubmit={handleSubmitIngredient}
+        onSubmit={async (data) => {
+          await handleSubmitIngredient({
+            ...data,
+            nguongCanhBao: 0
+          });
+        }}
         mode={dialogMode}
       />
     </div>

@@ -7,46 +7,96 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface Slide {
   src: string;
   alt: string;
+  lienKet?: string;
 }
 
 interface Category {
   id: string;
   name: string;
+  hinhAnh?: string;
 }
 
 interface CategoryApiResponse {
   _id: string;
   ten: string;
+  hinhAnh?: string;
 }
 
-interface ApiResponse {
+interface BannerApiResponse {
+  _id: string;
+  hinhAnh: string;
+  lienKet?: string;
+  thuTu: number;
+  hienThi: boolean;
+  ngayTao: string;
+  ngayCapNhat: string;
+}
+
+interface ApiResponse<T> {
   success: boolean;
-  data: CategoryApiResponse[];
+  data: T[];
 }
 
 export default function HomePage() {
-  const slides: Slide[] = [
-    {
-      src: "https://hcm.fstorage.vn/images/2025/04/snapedit_1744181887589-20250409070007.jpeg",
-      alt: "Slide 1",
-    },
-    {
-      src: "https://hcm.fstorage.vn/images/2025/02/z6354760025523_12445341681b2738b00b305e3265cc74-20250226105255.jpg",
-      alt: "Slide 2",
-    },
-    {
-      src: "https://hcm.fstorage.vn/images/2025/02/z6354752585421_19941f398535b340836dfb6e184027dc-20250226105402.jpg",
-      alt: "Slide 3",
-    },
-  ];
-
+  const [slides, setSlides] = useState<Slide[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const isMobile = useIsMobile()
+  const [loadingSlides, setLoadingSlides] = useState<boolean>(true);
+  const isMobile = useIsMobile();
 
+  // Lấy danh sách banner
+  useEffect(() => {
+    const fetchBanners = async () => {
+      try {
+        setLoadingSlides(true);
+        const response: ApiResponse<BannerApiResponse> = await getData(
+          "/api/banners"
+        );
+        const data = response.data;
+        if (!Array.isArray(data)) {
+          throw new Error("API response data for banners is not an array");
+        }
+
+        const formattedSlides: Slide[] = data.map((banner, index) => ({
+          src: banner.hinhAnh,
+          alt: `Banner ${index + 1}`,
+          lienKet: banner.lienKet,
+        }));
+        setSlides(formattedSlides);
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Failed to fetch banners:", error.message);
+        } else {
+          console.error("Failed to fetch banners:", error);
+        }
+        console.error("Error details:", error);
+        // Fallback to default slides if API fails
+        setSlides([
+          {
+            src: "https://hcm.fstorage.vn/images/2025/04/snapedit_1744181887589-20250409070007.jpeg",
+            alt: "Slide 1",
+          },
+          {
+            src: "https://hcm.fstorage.vn/images/2025/02/z6354760025523_12445341681b2738b00b305e3265cc74-20250226105255.jpg",
+            alt: "Slide 2",
+          },
+          {
+            src: "https://hcm.fstorage.vn/images/2025/02/z6354752585421_19941f398535b340836dfb6e184027dc-20250226105402.jpg",
+            alt: "Slide 3",
+          },
+        ]);
+      } finally {
+        setLoadingSlides(false);
+      }
+    };
+
+    fetchBanners();
+  }, []);
+
+  // Lấy danh sách danh mục
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response: ApiResponse = await getData("/api/categories");
+        const response: ApiResponse<CategoryApiResponse> = await getData("/api/categories");
         console.log("API response data:", response);
         const data = response.data;
         if (!Array.isArray(data)) {
@@ -60,6 +110,7 @@ export default function HomePage() {
           return {
             id: item._id,
             name: item.ten,
+            hinhAnh: item.hinhAnh,
           };
         });
         setCategories(formattedData);
@@ -78,22 +129,51 @@ export default function HomePage() {
   return (
     <div className="home-page">
       <section className="mt-5">
-        <Carousel className={`w-full ${isMobile ? 'p-2' : 'p-0'}`}>
+        <Carousel className={`w-full ${isMobile ? "p-2" : "p-0"}`}>
           <CarouselContent>
-            {slides.map((slide, index) => (
-              <CarouselItem key={index}>
-                <img
-                  src={slide.src}
-                  alt={slide.alt}
-                  className={`
-                    w-full 
-                    rounded
-                    ${isMobile ? 'h-auto' : 'h-[410px]'}
-                    object-contain
-                  `}
-                />
+            {loadingSlides ? (
+              <CarouselItem>
+                <div className="w-full h-[410px] flex items-center justify-center">
+                  <p>Đang tải banner...</p>
+                </div>
               </CarouselItem>
-            ))}
+            ) : slides.length === 0 ? (
+              <CarouselItem>
+                <div className="w-full h-[410px] flex items-center justify-center">
+                  <p>Không có banner nào</p>
+                </div>
+              </CarouselItem>
+            ) : (
+              slides.map((slide, index) => (
+                <CarouselItem key={index}>
+                  {slide.lienKet ? (
+                    <Link to={slide.lienKet} target="_blank">
+                      <img
+                        src={slide.src}
+                        alt={slide.alt}
+                        className={`
+                          w-full 
+                          rounded
+                          ${isMobile ? "h-auto" : "h-[410px]"}
+                          object-contain
+                        `}
+                      />
+                    </Link>
+                  ) : (
+                    <img
+                      src={slide.src}
+                      alt={slide.alt}
+                      className={`
+                        w-full 
+                        rounded
+                        ${isMobile ? "h-auto" : "h-[410px]"}
+                        object-contain
+                      `}
+                    />
+                  )}
+                </CarouselItem>
+              ))
+            )}
           </CarouselContent>
         </Carousel>
       </section>
@@ -105,25 +185,24 @@ export default function HomePage() {
             {categories.length > 0 ? (
               <>
                 {categories.map((category) => (
-                  <Link 
-                    to={`/products?category=${category.id}`} 
+                  <Link
+                    to={`/products?category=${category.id}`}
                     key={category.id}
                     className="bg-background p-4 rounded-lg shadow-md text-center cursor-pointer group"
                   >
-                    <img 
+                    <img
                       className="w-20 h-20 object-contain m-auto transition duration-500 group-hover:scale-105"
-                      src={
-                        category.name === 'Trà sữa'
-                          ? 'https://khothietke.net/wp-content/uploads/2021/03/PNG00161-tra-sua-sua-tran-chau-coc-tra-sua-png.png'
-                          : 'https://cdn.pixabay.com/photo/2023/07/19/19/14/ai-generated-8137630_1280.png'
-                      }
-                      alt=""
+                      src={category.hinhAnh}
+                      alt={category.name}
                     />
                     <p className="text-gray-700">{category.name}</p>
                   </Link>
                 ))}
-                <Link to="/products" className="bg-background p-4 rounded-lg shadow-md text-center cursor-pointer group">
-                  <img 
+                <Link
+                  to="/products"
+                  className="bg-background p-4 rounded-lg shadow-md text-center cursor-pointer group"
+                >
+                  <img
                     className="w-20 h-20 object-contain m-auto transition duration-500 group-hover:scale-105"
                     src="https://png.pngtree.com/png-vector/20240907/ourmid/pngtree-frappe-coffee-with-beans-on-white-background-png-image_13775917.png"
                     alt=""

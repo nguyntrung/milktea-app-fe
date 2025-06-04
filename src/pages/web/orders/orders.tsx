@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { getData } from "../../../lib/api";
+import { getData, putData } from "../../../lib/api";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { vi } from "date-fns/locale";
 import { TrangThaiDonHang } from "../../../types/common";
 import Fallback from "@/components/ui/fallback";
 import { CircleArrowRight } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface OrderItem {
   _id: string;
@@ -97,6 +98,7 @@ interface OrderDetailResponse {
 export default function Orders() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
 
@@ -246,6 +248,36 @@ export default function Orders() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
   };
 
+  // Hàm xử lý hủy đơn hàng
+  const handleCancelOrder = async () => {
+    if (!cancelOrderId) return;
+
+    try {
+      const response = await putData(`/api/orders/${cancelOrderId}/status`, {
+        trangThaiDonHang: "daHuy",
+      });
+
+      if (response.success) {
+        toast.success("Hủy đơn hàng thành công");
+        // Cập nhật lại danh sách đơn hàng
+        const updatedOrders = orders.map(order => {
+          if (order._id === cancelOrderId) {
+            return { ...order, trangThai: TrangThaiDonHang.DA_HUY };
+          }
+          return order;
+        });
+        setOrders(updatedOrders);
+      } else {
+        toast.error("Không thể hủy đơn hàng");
+      }
+    } catch (error) {
+      console.error("Lỗi khi hủy đơn hàng:", error);
+      toast.error("Đã xảy ra lỗi khi hủy đơn hàng");
+    } finally {
+      setCancelOrderId(null);
+    }
+  };
+
   // Hàm định dạng ngày tháng
   const formatDate = (dateString: string) => {
     try {
@@ -294,13 +326,14 @@ export default function Orders() {
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="text-center py-16 bg-card rounded-lg shadow-sm">
-          <div className="w-16 h-16 mx-auto mb-4 text-gray-400">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+          <div className="w-30 h-30 mx-auto mb-4 text-gray-400">
+            <img 
+              src="https://erapharma.meu-solutions.com/assets/empty_box-CUmoE1Uo.gif"
+              alt=""
+              className="w-full h-full object-contain"
+            />
           </div>
-          <h3 className="text-lg font-medium mb-2">Không có đơn hàng nào</h3>
-          <p className="text-gray-500 mb-6">Bạn chưa có đơn hàng nào trong mục này</p>
+          <p className="text-muted-foreground mb-6">Bạn chưa có đơn hàng nào trong mục này</p>
           <Button onClick={() => navigate("/products")}>Tiếp tục mua sắm</Button>
         </div>
       ) : (
@@ -309,19 +342,18 @@ export default function Orders() {
             <div key={order._id} className="bg-card rounded-lg shadow-sm overflow-hidden">
               <div className="p-4 border-b flex justify-between items-center">
                 <div>
-                  <p className="text-sm text-gray-500">Mã đơn hàng: <span className="font-medium text-gray-700">{order.maHoaDon}</span></p>
-                  <p className="text-sm text-gray-500">Ngày đặt: {formatDate(order.ngayTao)}</p>
+                  <h3 className="font-medium mb-2">Thông tin người nhận</h3>
+                  <p className="text-sm">{order.thongTinNguoiNhan.ten} - {order.thongTinNguoiNhan.soDienThoai}</p>
+                  <p className="text-sm">{order.thongTinNguoiNhan.diaChi}</p>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusText(order.trangThai).color}`}>
-                  {getStatusText(order.trangThai).text}
-                </div>
-              </div>
 
-              <div className="p-4 border-b">
-                <h3 className="font-medium mb-2">Thông tin người nhận</h3>
-                <p className="text-sm">{order.thongTinNguoiNhan.ten}</p>
-                <p className="text-sm">{order.thongTinNguoiNhan.soDienThoai}</p>
-                <p className="text-sm">{order.thongTinNguoiNhan.diaChi}</p>
+                <div>
+                  <p className="text-sm text-muted-foreground">Mã đơn hàng: <span className="font-medium text-gray-700">{order.maHoaDon}</span></p>
+                  <p className="text-sm text-muted-foreground">Ngày đặt: {formatDate(order.ngayTao)}</p>
+                  <div className={`w-[50%] text-center px-3 py-2 my-2 justify-end rounded text-sm font-medium ${getStatusText(order.trangThai).color}`}>
+                    {getStatusText(order.trangThai).text}
+                  </div>
+                </div>
               </div>
 
               <div className="p-4">
@@ -342,7 +374,7 @@ export default function Orders() {
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-sm">{item.ten}</p>
-                        <p className="text-xs text-gray-500">SL: {item.soLuong}</p>
+                        <p className="text-xs text-gray-500">Số lượng: {item.soLuong}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-sm">{formatPrice(item.tongGia)}</p>
@@ -358,10 +390,20 @@ export default function Orders() {
                   <p className="font-medium text-primary text-lg">{formatPrice(order.tongTien)}</p>
                 </div>
                 <div className="space-x-2">
-                  {order.trangThai === TrangThaiDonHang.DANG_CHUAN_BI && (
-                    <Button variant="destructive" size="sm">Hủy đơn hàng</Button>
+                  {order.trangThai === TrangThaiDonHang.CHO_XAC_NHAN && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => setCancelOrderId(order._id)}
+                    >
+                      Hủy đơn hàng
+                    </Button>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/order-detail/${order._id}`)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate(`/order-detail/${order._id}`)}
+                  >
                     Chi tiết
                     <CircleArrowRight />
                   </Button>
@@ -371,6 +413,30 @@ export default function Orders() {
           ))}
         </div>
       )}
+        <Dialog open={!!cancelOrderId} onOpenChange={() => setCancelOrderId(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Xác nhận hủy đơn hàng</DialogTitle>
+              <DialogDescription>
+                Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setCancelOrderId(null)}
+              >
+                Hủy
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleCancelOrder}
+              >
+                Xác nhận hủy
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }

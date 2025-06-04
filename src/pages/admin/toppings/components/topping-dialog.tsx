@@ -36,7 +36,7 @@ const toppingSchema = z.object({
   gia: z.coerce.number().min(0, "Giá không được âm"),
   donViTinh: z.string().min(1, "Đơn vị tính không được để trống"),
   soLuongMotPhan: z.coerce.number().min(0, "Số lượng không được âm"),
-  hoatDong: z.boolean().default(true),
+  hoatDong: z.boolean().optional(),
 });
 
 type ToppingFormValues = z.infer<typeof toppingSchema>;

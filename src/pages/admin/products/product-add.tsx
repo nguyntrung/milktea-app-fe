@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { getData, postData, putData } from "@/lib/api";
+import { getData, postData, postFormData, putData } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,6 +54,27 @@ interface LuaChonSize {
   thanhPhan: ThanhPhan[];
 }
 
+interface ProductForm {
+  ten: string;
+  moTa: string;
+  maDanhMuc: string;
+  giaCoBan: number;
+  luaChonSize: {
+    tenSize: string;
+    giaTang: number;
+    thanhPhan: {
+      maNguyenLieu: string;
+      soLuong: number;
+      donViTinh: string;
+    }[];
+  }[];
+  hoatDong: boolean;
+  hinhAnh?: string[];
+  tuychon?: string[];
+  congThuc?: string;
+  toppingCoTheThem?: string[];
+}
+
 // Định nghĩa schema validation cho form
 const productSchema = z.object({
   ten: z.string().min(1, "Tên sản phẩm không được để trống"),
@@ -65,13 +86,13 @@ const productSchema = z.object({
     giaTang: z.coerce.number().min(0, "Giá tăng không được âm"),
     thanhPhan: z.array(z.object({
       maNguyenLieu: z.string(),
-      soLuong: z.coerce.number().min(0),
-      donViTinh: z.string().default("GRAM")
+      soLuong: z.coerce.number().min(0, "Số lượng không được âm"),
+      donViTinh: z.string(), // Loại bỏ default để khớp với kiểu
     }))
   })),
-  hinhAnh: z.array(z.string()).optional(), // Allow empty array for images
+  hinhAnh: z.array(z.string()).optional(),
   tuychon: z.array(z.string()).optional(),
-  hoatDong: z.boolean().default(true),
+  hoatDong: z.boolean(), // Loại bỏ default ở đây, sẽ xử lý ở defaultValues
   congThuc: z.string().optional(),
   toppingCoTheThem: z.array(z.string()).optional(),
 });
@@ -120,7 +141,7 @@ export default function ProductAdd() {
   }[]>([]);
 
   // State để lưu dữ liệu sản phẩm trước khi load
-  const [productDataToLoad, setProductDataToLoad] = useState<any>(null);
+  const [productDataToLoad, setProductDataToLoad] = useState<ProductFormValues | null>(null);
   
   // Khởi tạo form
   const form = useForm<ProductFormValues>({
@@ -133,10 +154,11 @@ export default function ProductAdd() {
       luaChonSize: [{ tenSize: 'M', giaTang: 0, thanhPhan: [] }],
       hinhAnh: [],
       tuychon: [],
-      hoatDong: true,
+      hoatDong: true, // Đặt giá trị mặc định ở đây
       congThuc: "",
       toppingCoTheThem: [],
     },
+    mode: "onChange", // Đảm bảo validation chạy ngay khi thay đổi
   });
 
   // Lấy dữ liệu khi component được mount
@@ -203,12 +225,12 @@ export default function ProductAdd() {
   }, [productDataToLoad, ingredients, categories, toppings]);
 
   // Hàm tải dữ liệu sản phẩm vào form
-  const loadProductData = (product: any) => {
+  const loadProductData = (product: ProductForm) => {
     console.log("Loading product data:", product);
 
     // Xử lý maDanhMuc
-    const categoryId = typeof product.maDanhMuc === 'object' && product.maDanhMuc?._id 
-      ? product.maDanhMuc._id 
+    const categoryId = typeof product.maDanhMuc === 'object' && (product.maDanhMuc as { _id: string })?._id
+      ? (product.maDanhMuc as { _id: string })._id
       : product.maDanhMuc || "";
 
     // Xử lý toppingCoTheThem
@@ -216,16 +238,26 @@ export default function ProductAdd() {
       return typeof topping === 'string' ? topping : topping._id;
     }) || [];
 
+    // Xử lý luaChonSize và thanhPhan
+    const formattedSizes = (product.luaChonSize || []).map((size: LuaChonSize) => ({
+      ...size,
+      thanhPhan: (size.thanhPhan || []).map((tp: ThanhPhan) => ({
+        maNguyenLieu: typeof tp.maNguyenLieu === 'object' ? tp.maNguyenLieu._id : tp.maNguyenLieu,
+        soLuong: tp.soLuong || 0,
+        donViTinh: tp.donViTinh || "GRAM",
+      })),
+    }));
+
     // Cập nhật form
     form.reset({
       ten: product.ten || "",
       moTa: product.moTa || "",
       maDanhMuc: categoryId,
       giaCoBan: product.giaCoBan || 0,
-      luaChonSize: product.luaChonSize || [{ tenSize: 'M', giaTang: 0, thanhPhan: [] }],
+      luaChonSize: formattedSizes.length > 0 ? formattedSizes : [{ tenSize: 'M', giaTang: 0, thanhPhan: [] }],
       hinhAnh: product.hinhAnh || [],
       tuychon: product.tuychon || [],
-      hoatDong: product.hoatDong !== undefined ? product.hoatDong : true,
+      hoatDong: product.hoatDong ?? true, // Đảm bảo giá trị mặc định
       congThuc: product.congThuc || "",
       toppingCoTheThem: loadedToppings,
     });
@@ -236,7 +268,7 @@ export default function ProductAdd() {
     setOptions(product.tuychon || []);
     setSelectedToppings(loadedToppings);
     setContent(product.congThuc || "");
-    setProductSizes(product.luaChonSize || [{ tenSize: 'M', giaTang: 0, thanhPhan: [] }]);
+    setProductSizes(formattedSizes.length > 0 ? formattedSizes : [{ tenSize: 'M', giaTang: 0, thanhPhan: [] }]);
 
     // Chuyển đổi thành phần thành cấu trúc productIngredients
     const ingredientMap = new Map();
@@ -249,9 +281,8 @@ export default function ProductAdd() {
               const ingredient = ingredients.find(i => i.value === ingredientId);
               if (ingredient) {
                 const soLuongTheoSize: Record<string, number> = {};
-                // Khởi tạo số lượng cho tất cả các size
                 product.luaChonSize.forEach((s: LuaChonSize) => {
-                  soLuongTheoSize[s.tenSize] = 0; // Giá trị mặc định
+                  soLuongTheoSize[s.tenSize] = 0;
                 });
                 ingredientMap.set(ingredientId, {
                   maNguyenLieu: ingredientId,
@@ -260,7 +291,6 @@ export default function ProductAdd() {
                 });
               }
             }
-            // Cập nhật số lượng cho size hiện tại
             const currentIngredient = ingredientMap.get(ingredientId);
             if (currentIngredient) {
               currentIngredient.soLuongTheoSize[size.tenSize] = tp.soLuong || 0;
@@ -405,9 +435,7 @@ export default function ProductAdd() {
         formData.append('images', file);
       });
 
-      const response = await postData('/api/products/upload-image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const response = await postFormData('/api/products/upload-image', formData);
 
       if (response.success && response.data) {
         setSelectedImages(prev => [...prev, ...response.data]);
@@ -449,10 +477,8 @@ export default function ProductAdd() {
   // Xử lý submit form
   const onSubmit = async (data: ProductFormValues) => {
     try {
-      // Log dữ liệu form để kiểm tra
       console.log("Form data before submit:", data);
 
-      // Kiểm tra lỗi validation
       const errors = form.formState.errors;
       if (Object.keys(errors).length > 0) {
         console.log("Form validation errors:", errors);
@@ -603,6 +629,7 @@ export default function ProductAdd() {
                     <FormControl>
                       <Textarea
                         placeholder="Nhập mô tả sản phẩm"
+                        className="h-45"
                         {...field}
                         onBlur={(e) => field.onChange(e.target.value)}
                         value={field.value}

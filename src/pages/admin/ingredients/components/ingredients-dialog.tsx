@@ -36,7 +36,7 @@ const ingredientSchema = z.object({
   ten: z.string().min(1, "Tên nguyên liệu không được để trống"),
   donViTinh: z.string().min(1, "Đơn vị tính không được để trống"),
   maNhaCungCap: z.array(z.string()).min(1, "Phải chọn ít nhất một nhà cung cấp"),
-  hoatDong: z.boolean().default(true),
+  hoatDong: z.boolean().optional(),
 });
 
 type IngredientFormValues = z.infer<typeof ingredientSchema>;

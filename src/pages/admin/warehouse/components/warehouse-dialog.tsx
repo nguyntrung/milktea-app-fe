@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Ban, Save } from "lucide-react";
+import { Ban, CalendarIcon, Save } from "lucide-react";
 import { postData } from "@/lib/api";
 
 import {
@@ -14,6 +14,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverContent } from "@radix-ui/react-popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar";
 
 // Định nghĩa interface cho nguyên liệu đã chọn
 interface SelectedIngredient {
@@ -46,6 +51,7 @@ export default function WarehouseDialog({
   selectedIngredients,
   onSubmitSuccess
 }: WarehouseDialogProps) {
+  const [date, setDate] = React.useState<Date>()
   const [loading, setLoading] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ingredients, setIngredients] = useState<SelectedIngredient[]>([]);
@@ -202,7 +208,7 @@ export default function WarehouseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="min-w-[700px]">
         <DialogHeader>
           <DialogTitle>Tạo phiếu đặt nguyên liệu</DialogTitle>
         </DialogHeader>
@@ -211,13 +217,28 @@ export default function WarehouseDialog({
           <div className="mb-4">
             <h3 className="font-medium mb-2">Danh sách nguyên liệu cần nhập</h3>
             
+            <div className="grid grid-cols-12 gap-2 items-center font-medium mb-2">
+              <div className="col-span-3">
+                <p>Tên nguyên liệu</p>
+              </div>
+              <div className="col-span-4">
+                <p>Nhà cung cấp</p>
+              </div>
+              <div className="col-span-2">
+                <p>Số lượng</p>
+              </div>
+              <div className="col-span-3">
+                <p>Ngày cần giao</p>
+              </div>
+            </div>
+
             {ingredients.length === 0 ? (
               <p className="text-muted-foreground">Không có nguyên liệu nào được chọn</p>
             ) : (
               <div className="space-y-2">
                 {ingredients.map((ingredient) => (
                   <div key={ingredient._id} className="grid grid-cols-12 gap-2 items-center">
-                    <div className="col-span-4">
+                    <div className="col-span-3">
                       <p>{ingredient.ten}</p>
                       <p className="text-xs text-muted-foreground">
                         Tồn kho: {ingredient.soLuongTon} {ingredient.donViTinh}
@@ -242,7 +263,7 @@ export default function WarehouseDialog({
                       </Select>
                     </div>
                     
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                       <Input
                         type="number"
                         min={1}
@@ -250,6 +271,30 @@ export default function WarehouseDialog({
                         onChange={(e) => handleQuantityChange(ingredient._id, parseInt(e.target.value) || 1)}
                         placeholder="Số lượng"
                       />
+                    </div>
+                    <div className="col-span-3">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !date && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {date ? format(date, "PPP") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={date}
+                            onSelect={setDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                 ))}

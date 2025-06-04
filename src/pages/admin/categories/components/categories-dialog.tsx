@@ -26,7 +26,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 // Định nghĩa schema validation cho form
 const categorySchema = z.object({
   ten: z.string().min(1, "Tên danh mục không được để trống"),
-  hoatDong: z.boolean().default(true),
+  hoatDong: z.boolean().optional(),
+  hinhAnh: z
+    .instanceof(File)
+    .optional()
+    .refine((file) => !file || file.size <= 5 * 1024 * 1024, {
+      message: "File ảnh không được lớn hơn 5MB",
+    })
+    .refine((file) => !file || file.type.startsWith("image/"), {
+      message: "Chỉ cho phép upload file ảnh",
+    }),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
@@ -34,6 +43,7 @@ type CategoryFormValues = z.infer<typeof categorySchema>;
 interface Category {
   _id?: string;
   ten: string;
+  hinhAnh: string;
   hoatDong?: boolean;
   ngayTao?: string;
   ngayCapNhat?: string;
@@ -43,7 +53,7 @@ interface CategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   category?: Category;
-  onSubmit: (data: CategoryFormValues) => Promise<void>;
+  onSubmit: (data: FormData) => Promise<void>;
   mode: "add" | "edit";
 }
 
@@ -55,6 +65,7 @@ export default function CategoryDialog({
   mode
 }: CategoryDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Khởi tạo form với giá trị mặc định
   const form = useForm<CategoryFormValues>({
@@ -62,40 +73,62 @@ export default function CategoryDialog({
     defaultValues: {
       ten: "",
       hoatDong: true,
+      hinhAnh: undefined,
     },
   });
 
-  // Cập nhật giá trị form khi category thay đổi
+  // Cập nhật giá trị form và preview ảnh khi category thay đổi
   useEffect(() => {
     if (category && mode === "edit") {
       form.reset({
         ten: category.ten || "",
         hoatDong: category.hoatDong !== undefined ? category.hoatDong : true,
+        hinhAnh: undefined,
       });
+      setPreviewImage(category.hinhAnh || null);
     } else if (mode === "add") {
       form.reset({
         ten: "",
         hoatDong: true,
+        hinhAnh: undefined,
       });
+      setPreviewImage(null);
     }
   }, [category, mode, form]);
+
+  // Xử lý thay đổi file ảnh
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      form.setValue("hinhAnh", file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      form.setValue("hinhAnh", undefined);
+      setPreviewImage(null);
+    }
+  };
 
   // Xử lý khi submit form
   const handleSubmit = async (data: CategoryFormValues) => {
     try {
       setLoading(true);
-      await onSubmit(data);
-      
-      // Hiển thị thông báo thành công
-      toast.success(
-        mode === "add" 
-          ? "Thêm danh mục thành công" 
-          : "Cập nhật danh mục thành công"
-      );
+      const formData = new FormData();
+      formData.append("ten", data.ten);
+      formData.append("hoatDong", (data.hoatDong ?? true).toString());
+      if (data.hinhAnh) {
+        formData.append("hinhAnh", data.hinhAnh);
+      }
+
+      await onSubmit(formData);
       
       // Đóng dialog và reset form
       onOpenChange(false);
       form.reset();
+      setPreviewImage(null);
     } catch (error) {
       console.error("Lỗi khi xử lý danh mục:", error);
       toast.error(
@@ -128,6 +161,32 @@ export default function CategoryDialog({
                   <FormControl>
                     <Input placeholder="Nhập tên danh mục" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Upload ảnh */}
+            <FormField
+              control={form.control}
+              name="hinhAnh"
+              render={() => (
+                <FormItem>
+                  <FormLabel>Hình ảnh danh mục</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                    />
+                  </FormControl>
+                  {previewImage && (
+                    <img
+                      src={previewImage}
+                      alt="Preview"
+                      className="mt-2 h-24 w-24 object-cover rounded"
+                    />
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

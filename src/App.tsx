@@ -2,32 +2,43 @@ import { useState, useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import Header from "./components/header";
 import Footer from "./components/footer";
-import HomePage from "./pages/web/home-page/home-page";
-import Categories from "./pages/admin/categories/categories";
-import LayoutAdmin from "./pages/admin/layout-admin";
-import Orders from "./pages/admin/orders/orders";
-import OrderDetailManage from "./pages/admin/orders/order-detail";
-import SignIn from "./pages/auth/sign-in";
-import Statistic from "./pages/admin/statistic/statistic";
-import Products from "./pages/admin/products/products";
-import ProductAdd from "./pages/admin/products/product-add";
-import SuppliersPage from "./pages/admin/suppliers/suppliers";
-import ToppingsPage from "./pages/admin/toppings/toppings";
-import IngredientsPage from "./pages/admin/ingredients/ingredients";
-import OrderIngredientsPage from "./pages/admin/order-ingredients/order-ingredients";
-import ProductList from "./pages/web/product-list/product-list";
-import ProductDetail from "./pages/web/product-list/product-detail";
-import MyCart from "./pages/web/my-cart/my-cart";
-import Checkout from "./pages/web/checkout/checkout";
-import OrderSuccess from "./pages/web/order-success/order-success";
-import OrdersW from "./pages/web/orders/orders";
-import OrderDetail from "./pages/web/orders/order-detail";
 import { Toaster } from "./components/ui/sonner";
-import Design from "./pages/admin/design/design";
-import Marketing from "./pages/admin/marketing/marketing";
-import Profile from "./pages/web/profile/profile";
-import Warehouse from "./pages/admin/warehouse/warehouse";
-import StoreSetting from "./pages/admin/store-setting/store-setting";
+import LazyWrapper from "./components/common/LazyWrapper";
+import { lazyImport } from "./lib/utils";
+
+// 🌐 Web pages
+const HomePage = lazyImport(() => import("./pages/web/home-page/home-page"));
+const ProductList = lazyImport(() => import("./pages/web/product-list/product-list"));
+const ProductDetail = lazyImport(() => import("./pages/web/product-list/product-detail"));
+const MyCart = lazyImport(() => import("./pages/web/my-cart/my-cart"));
+const Checkout = lazyImport(() => import("./pages/web/checkout/checkout"));
+const OrderSuccess = lazyImport(() => import("./pages/web/order-success/order-success"));
+const OrdersW = lazyImport(() => import("./pages/web/orders/orders"));
+const OrderDetail = lazyImport(() => import("./pages/web/orders/order-detail"));
+const Profile = lazyImport(() => import("./pages/web/profile/profile"));
+
+// 🔐 Auth
+const SignIn = lazyImport(() => import("./pages/auth/sign-in"));
+
+// 🛠 Admin layout
+const LayoutAdmin = lazyImport(() => import("./pages/admin/layout-admin"));
+
+// 🧾 Admin pages
+const Statistic = lazyImport(() => import("./pages/admin/statistic/statistic"));
+const Categories = lazyImport(() => import("./pages/admin/categories/categories"));
+const Orders = lazyImport(() => import("./pages/admin/orders/orders"));
+const OrderDetailManage = lazyImport(() => import("./pages/admin/orders/order-detail"));
+const Products = lazyImport(() => import("./pages/admin/products/products"));
+const ProductAdd = lazyImport(() => import("./pages/admin/products/product-add"));
+const SuppliersPage = lazyImport(() => import("./pages/admin/suppliers/suppliers"));
+const ToppingsPage = lazyImport(() => import("./pages/admin/toppings/toppings"));
+const IngredientsPage = lazyImport(() => import("./pages/admin/ingredients/ingredients"));
+const OrderIngredientsPage = lazyImport(() => import("./pages/admin/order-ingredients/order-ingredients"));
+const Warehouse = lazyImport(() => import("./pages/admin/warehouse/warehouse"));
+const Design = lazyImport(() => import("./pages/admin/design/design"));
+const Marketing = lazyImport(() => import("./pages/admin/marketing/marketing"));
+const StoreSetting = lazyImport(() => import("./pages/admin/store-setting/store-setting"));
+const Users = lazyImport(() => import("./pages/admin/users/users"));
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -41,13 +52,10 @@ function App() {
       setIsLoggedIn(true);
       setIsAdmin(userRole === "admin");
     }
-
     setIsLoading(false);
   }, []);
 
-  if (isLoading) {
-    return <div></div>;
-  }
+  if (isLoading) return <div>Đang tải...</div>;
 
   return (
     <BrowserRouter>
@@ -60,65 +68,60 @@ function App() {
           setIsAdmin={setIsAdmin}
         />
         <div className="flex flex-1">
-          <main
-            className={isAdmin ? "ml-64 flex-1" : "flex-1"}
-            style={{ maxWidth: "1200px", margin: "0 auto" }}
-          >
+          <main className={isAdmin ? "ml-64 flex-1" : "flex-1"} style={{ maxWidth: "1200px", margin: "0 auto" }}>
             <Routes>
+              {/* Auth */}
               <Route
                 path="/sign-in"
                 element={
                   isLoggedIn ? (
                     <Navigate to={isAdmin ? "/admin" : "/"} />
                   ) : (
-                    <SignIn setIsLoggedIn={setIsLoggedIn} setIsAdmin={setIsAdmin} />
+                    <LazyWrapper>
+                      <SignIn setIsLoggedIn={setIsLoggedIn} setIsAdmin={setIsAdmin} />
+                    </LazyWrapper>
                   )
                 }
               />
+
+              {/* Public */}
+              <Route path="/" element={<LazyWrapper><HomePage /></LazyWrapper>} />
+              <Route path="/products" element={<LazyWrapper><ProductList /></LazyWrapper>} />
+              <Route path="/products/:id" element={<LazyWrapper><ProductDetail /></LazyWrapper>} />
+              <Route path="/cart" element={<LazyWrapper><MyCart /></LazyWrapper>} />
+              <Route path="/checkout" element={<LazyWrapper><Checkout /></LazyWrapper>} />
+              <Route path="/order-success" element={<LazyWrapper><OrderSuccess /></LazyWrapper>} />
+              <Route path="/orders" element={<LazyWrapper><OrdersW /></LazyWrapper>} />
+              <Route path="/order-detail/:id" element={<LazyWrapper><OrderDetail /></LazyWrapper>} />
+              <Route path="/profile" element={<LazyWrapper><Profile /></LazyWrapper>} />
+
+              {/* Admin */}
               <Route
-                path="/sign-in"
+                path="/admin"
                 element={
-                  isLoggedIn ? (
-                    <Navigate to={isAdmin ? "/admin" : "/"} />
+                  isLoggedIn && isAdmin ? (
+                    <LazyWrapper><LayoutAdmin /></LazyWrapper>
                   ) : (
-                    <SignIn setIsLoggedIn={setIsLoggedIn} setIsAdmin={setIsAdmin} />
+                    <Navigate to={isLoggedIn ? "/" : "/sign-in"} />
                   )
                 }
-              />
-              <Route path="/" element={<HomePage />} />
-              <Route path="/products" element={<ProductList />} />
-              <Route path="/products/:id" element={<ProductDetail />} />
-              <Route path="/cart" element={<MyCart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/order-success" element={<OrderSuccess />} />
-              <Route path="/orders" element={<OrdersW />} />
-              <Route path="/order-detail/:id" element={<OrderDetail />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route
-                  path="/admin"
-                  element={
-                    isLoggedIn && isAdmin ? (
-                      <LayoutAdmin />
-                    ) : (
-                      <Navigate to={isLoggedIn ? "/" : "/sign-in"} />
-                    )
-                  }
-                >
-                <Route index element={<Statistic />} />
-                <Route path="categories" element={<Categories />} />
-                <Route path="orders" element={<Orders />} />
-                <Route path="orders/:id" element={<OrderDetailManage />} />
-                <Route path="products" element={<Products />} />
-                <Route path="products/add" element={<ProductAdd />} />
-                <Route path="products/edit/:id" element={<ProductAdd />} />
-                <Route path="suppliers" element={<SuppliersPage />} />
-                <Route path="toppings" element={<ToppingsPage />} />
-                <Route path="ingredients" element={<IngredientsPage />} />
-                <Route path="warehouse" element={<Warehouse />} />
-                <Route path="order-ingredients" element={<OrderIngredientsPage />} /> 
-                <Route path="design" element={<Design />} />
-                <Route path="marketing" element={<Marketing />} />
-                <Route path="store-setting" element={<StoreSetting />} />
+              >
+                <Route index element={<LazyWrapper><Statistic /></LazyWrapper>} />
+                <Route path="categories" element={<LazyWrapper><Categories /></LazyWrapper>} />
+                <Route path="orders" element={<LazyWrapper><Orders /></LazyWrapper>} />
+                <Route path="orders/:id" element={<LazyWrapper><OrderDetailManage /></LazyWrapper>} />
+                <Route path="products" element={<LazyWrapper><Products /></LazyWrapper>} />
+                <Route path="products/add" element={<LazyWrapper><ProductAdd /></LazyWrapper>} />
+                <Route path="products/edit/:id" element={<LazyWrapper><ProductAdd /></LazyWrapper>} />
+                <Route path="suppliers" element={<LazyWrapper><SuppliersPage /></LazyWrapper>} />
+                <Route path="toppings" element={<LazyWrapper><ToppingsPage /></LazyWrapper>} />
+                <Route path="ingredients" element={<LazyWrapper><IngredientsPage /></LazyWrapper>} />
+                <Route path="warehouse" element={<LazyWrapper><Warehouse /></LazyWrapper>} />
+                <Route path="order-ingredients" element={<LazyWrapper><OrderIngredientsPage /></LazyWrapper>} />
+                <Route path="design" element={<LazyWrapper><Design /></LazyWrapper>} />
+                <Route path="marketing" element={<LazyWrapper><Marketing /></LazyWrapper>} />
+                <Route path="store-setting" element={<LazyWrapper><StoreSetting /></LazyWrapper>} />
+                <Route path="users" element={<LazyWrapper><Users /></LazyWrapper>} />
               </Route>
             </Routes>
           </main>

@@ -20,7 +20,7 @@ import {
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { ChevronLeft, ChevronRight, Import } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
@@ -190,9 +190,9 @@ export default function OrderIngredients() {
               variant="ghost" 
               size="icon"
               onClick={() => console.log("Xem chi tiết đơn", order._id)}
-              title="Xem chi tiết"
+              title="Nhập hàng"
             >
-              <Eye className="h-4 w-4" />
+              <Import className="h-4 w-4" />
             </Button>
           </div>
         );

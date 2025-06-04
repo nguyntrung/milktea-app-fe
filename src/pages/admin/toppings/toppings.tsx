@@ -280,7 +280,7 @@ export default function ToppingsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         topping={selectedTopping}
-        onSubmit={handleSubmitTopping}
+        onSubmit={(data) => handleSubmitTopping({...data, hoatDong: data.hoatDong ?? false})}
         mode={dialogMode}
       />
     </div>
