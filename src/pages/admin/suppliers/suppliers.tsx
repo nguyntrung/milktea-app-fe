@@ -157,7 +157,7 @@ export default function SuppliersPage() {
   });
 
   return (
-    <div className="bg-card h-fit w-full rounded-md p-3 shadow-md">
+    <div className="bg-card h-fit w-full rounded-md p-3 mb-3 shadow-md">
       <h3 className="text-2xl font-bold mb-3">Danh sách nhà cung cấp</h3>
       
       {loading && suppliers.length === 0 ? (

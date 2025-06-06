@@ -687,7 +687,7 @@ export default function Orders() {
   });
 
   return (
-    <div className="bg-card h-fit w-full rounded-md p-3 shadow-md">
+    <div className="bg-card h-fit w-full rounded-md p-3 mb-3 shadow-md">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý đơn hàng</h1>
         <Button onClick={fetchOrders} variant="outline" className="cursor-pointer">

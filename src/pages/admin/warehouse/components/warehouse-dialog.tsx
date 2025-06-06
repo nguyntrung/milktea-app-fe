@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Ban, CalendarIcon, Save } from "lucide-react";
-import { postData } from "@/lib/api";
+import { postData, getData } from "@/lib/api";
 
 import {
   Dialog,
@@ -37,6 +37,19 @@ interface Supplier {
   ten: string;
 }
 
+// Định nghĩa interface cho ingredient từ API - CẬP NHẬT
+interface IngredientFromAPI {
+  _id: string;
+  ten: string;
+  donViTinh: string;
+  maNhaCungCap: Supplier[]; // Đây là mảng object Supplier, không phải string ID
+  hoatDong: boolean;
+  nguyenLieuHaoHut?: boolean;
+  ngayTao?: string;
+  ngayCapNhat?: string;
+  __v?: number;
+}
+
 // Định nghĩa props cho component
 interface WarehouseDialogProps {
   open: boolean;
@@ -56,13 +69,21 @@ export default function WarehouseDialog({
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ingredients, setIngredients] = useState<SelectedIngredient[]>([]);
   const [groupedOrders, setGroupedOrders] = useState<{[key: string]: SelectedIngredient[]}>({});
+  const [availableSuppliers, setAvailableSuppliers] = useState<{[key: string]: Supplier[]}>({});
 
   // Lấy userID từ localStorage
-  const getUserName = () => {
+  // const getUserName = () => {
+  //   if (typeof window !== 'undefined') {
+  //     return localStorage.getItem('user') || "Admin";
+  //   }
+  //   return "Admin";
+  // };
+
+  const getUserId = () => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('user') || "Admin";
+      return localStorage.getItem('userId') || "defaultUserId";
     }
-    return "Admin";
+    return "defaultUserId";
   };
 
   // Khởi tạo danh sách nguyên liệu từ props
@@ -77,26 +98,49 @@ export default function WarehouseDialog({
     }
   }, [selectedIngredients]);
 
-  // Lấy danh sách nhà cung cấp
+  // Lấy danh sách nhà cung cấp và thông tin chi tiết nguyên liệu - CẬP NHẬT
   useEffect(() => {
-    const fetchSuppliers = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('https://trasua.up.railway.app/api/suppliers');
-        const data = await response.json();
-        if (data.success && Array.isArray(data.data)) {
-          setSuppliers(data.data);
+        // Lấy danh sách tất cả nhà cung cấp
+        const suppliersResponse = await getData('/api/suppliers');
+        if (suppliersResponse.success && Array.isArray(suppliersResponse.data)) {
+          setSuppliers(suppliersResponse.data);
+        }
+
+        // Lấy thông tin chi tiết nguyên liệu để có danh sách nhà cung cấp cho từng nguyên liệu
+        const ingredientsResponse = await getData('/api/ingredients');
+        if (ingredientsResponse.success && Array.isArray(ingredientsResponse.data)) {
+          const ingredientSuppliers: {[key: string]: Supplier[]} = {};
+          
+          // Tạo mapping giữa ingredient ID và danh sách nhà cung cấp của nó
+          ingredientsResponse.data.forEach((ingredient: IngredientFromAPI) => {
+            if (ingredient.maNhaCungCap && Array.isArray(ingredient.maNhaCungCap)) {
+              // Lấy trực tiếp danh sách nhà cung cấp từ mảng object
+              ingredientSuppliers[ingredient._id] = ingredient.maNhaCungCap;
+            }
+          });
+          
+          setAvailableSuppliers(ingredientSuppliers);
         }
       } catch (error) {
-        console.error("Lỗi khi lấy danh sách nhà cung cấp:", error);
+        console.error("Lỗi khi lấy dữ liệu:", error);
         toast.error("Không thể lấy danh sách nhà cung cấp");
       }
     };
 
-    fetchSuppliers();
-  }, []);
+    if (open) {
+      fetchData();
+    }
+  }, [open]);
 
   // Xử lý khi chọn nhà cung cấp cho nguyên liệu
   const handleSupplierChange = (ingredientId: string, supplierId: string) => {
+    if (supplierId.length !== 24) {
+      toast.error("Nhà cung cấp không hợp lệ");
+      return;
+    }
+
     setIngredients(prev => 
       prev.map(item => 
         item._id === ingredientId ? { ...item, maNhaCungCap: supplierId } : item
@@ -155,17 +199,12 @@ export default function WarehouseDialog({
         const orderData = {
           maNhaCungCap: supplierId,
           ngayDat: new Date().toISOString(),
-          thoiGianCanGiao: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 ngày sau
-          nguyenLieu: items.map(item => ({
-            maNguyenLieu: item._id,
-            soLuong: item.soLuong || 1,
-            donGia: 0,
-            thanhTien: 0
-          })),
+          thoiGianCanGiao: date ? date.toISOString() : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          nguyenLieu: items.map(item => item._id),
           tongTien: 0,
-          trangThai: "daDuyet",
+          trangThai: "chuaNhap",
           ghiChu: "Tạo từ quản lý kho",
-          nguoiDat: getUserName()
+          nguoiDat: getUserId()
         };
         
         return await postData("/api/order-ingredients", orderData);
@@ -206,9 +245,12 @@ export default function WarehouseDialog({
     });
   };
 
+  console.log("groupedOrders:", groupedOrders);
+  console.log("availableSuppliers:", availableSuppliers);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="min-w-[700px]">
+      <DialogContent className="min-w-[900px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Tạo phiếu đặt nguyên liệu</DialogTitle>
         </DialogHeader>
@@ -254,11 +296,17 @@ export default function WarehouseDialog({
                           <SelectValue placeholder="Chọn nhà cung cấp" />
                         </SelectTrigger>
                         <SelectContent>
-                          {suppliers.map((supplier) => (
-                            <SelectItem key={supplier._id} value={supplier._id}>
-                              {supplier.ten}
-                            </SelectItem>
-                          ))}
+                          {availableSuppliers[ingredient._id]?.length > 0 ? (
+                            availableSuppliers[ingredient._id].map((supplier) => (
+                              <SelectItem key={supplier._id} value={supplier._id}>
+                                {supplier.ten}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="py-2 px-2 text-sm text-muted-foreground">
+                              Không có nhà cung cấp
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -283,15 +331,16 @@ export default function WarehouseDialog({
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date ? format(date, "PPP") : <span>Pick a date</span>}
+                            {date ? format(date, "dd/MM/yyyy") : <span>Chọn ngày</span>}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
+                        <PopoverContent className="w-auto p-0 bg-white border rounded-lg shadow-lg">
                           <Calendar
                             mode="single"
                             selected={date}
                             onSelect={setDate}
                             initialFocus
+                            disabled={(date) => date < new Date()}
                           />
                         </PopoverContent>
                       </Popover>
@@ -310,7 +359,7 @@ export default function WarehouseDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0">
           <DialogClose asChild>
             <Button type="button" variant="outline" className="cursor-pointer">
               <Ban className="mr-2 h-4 w-4" /> Hủy

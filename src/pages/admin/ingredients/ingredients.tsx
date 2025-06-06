@@ -202,7 +202,7 @@ export default function IngredientsPage() {
   });
 
   return (
-    <div className="bg-card h-fit w-full rounded-md p-3 shadow-md">
+    <div className="bg-card h-fit w-full rounded-md p-3 mb-3 shadow-md">
       <h3 className="text-2xl font-bold mb-3">Danh sách nguyên liệu</h3>
       
       {loading && ingredients.length === 0 ? (

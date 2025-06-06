@@ -85,7 +85,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <div className="bg-background rounded-lg w-[300px] shadow-md mb-3">
+    <div className="bg-background rounded-lg w-[300px] shadow-md mb-3 sticky top-[141px]">
       <SidebarProvider>
         <SidebarMenu>
           {menuItems.map((item, index) => (

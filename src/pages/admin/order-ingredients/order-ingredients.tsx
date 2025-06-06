@@ -20,9 +20,10 @@ import {
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Import } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Import } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import OrderIngredientsDialog from "./components/order-ingredients-dialog";
 
 interface OrderIngredient {
   _id: string;
@@ -52,6 +53,8 @@ export default function OrderIngredients() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   // Lấy danh sách đơn đặt nguyên liệu
   const fetchData = async () => {
@@ -151,20 +154,16 @@ export default function OrderIngredients() {
         let statusText = "";
         
         switch(status) {
-          case "daDuyet":
-            statusClass = "bg-green-100 text-green-800";
-            statusText = "Đã duyệt";
-            break;
-          case "dangXuLy":
-            statusClass = "bg-blue-100 text-blue-800";
-            statusText = "Đang xử lý";
+          case "chuaNhap":
+            statusClass = "bg-gray-100 text-gray-800";
+            statusText = "Chưa nhập";
             break;
           case "daHuy":
             statusClass = "bg-red-100 text-red-800";
             statusText = "Đã hủy";
             break;
           case "daNhap":
-            statusClass = "bg-purple-100 text-purple-800";
+            statusClass = "bg-green-100 text-green-800";
             statusText = "Đã nhập";
             break;
           default:
@@ -173,7 +172,7 @@ export default function OrderIngredients() {
         }
         
         return (
-          <div className={`inline-block px-2 py-1 rounded-md ${statusClass}`}>
+          <div className={`w-full text-center inline-block px-2 py-1 rounded-md ${statusClass}`}>
             {statusText}
           </div>
         );
@@ -184,15 +183,19 @@ export default function OrderIngredients() {
       header: () => <div className="text-center">Thao tác</div>,
       cell: ({ row }) => {
         const order = row.original;
+        const status = order.trangThai;
         return (
           <div className="text-center">
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={() => console.log("Xem chi tiết đơn", order._id)}
-              title="Nhập hàng"
+              onClick={() => {
+                setSelectedOrderId(order._id);
+                setImportDialogOpen(true);
+              }}
+              title={status === "chuaNhap"? "Nhập hàng" : "Xem chi tiết"}
             >
-              <Import className="h-4 w-4" />
+              {status === "chuaNhap" ? <Import /> : <Eye />}
             </Button>
           </div>
         );
@@ -311,6 +314,15 @@ export default function OrderIngredients() {
             </div>
           </div>
         )}
+        <OrderIngredientsDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          orderId={selectedOrderId}
+          onSubmitSuccess={() => {
+            fetchData();
+            setSelectedOrderId(null);
+          }}
+        />
       </CardContent>
     </Card>
   );

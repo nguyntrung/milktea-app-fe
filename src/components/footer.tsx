@@ -32,7 +32,7 @@ export default function Footer() {
 
   return (
     <footer
-      className={`bg-primary text-popover py-6 md:py-10 max-w-[1200px] mx-auto grid ${
+      className={`bg-primary text-popover py-6 md:py-8 max-w-[1200px] mx-auto grid ${
         isMobile ? "grid-cols-1" : "grid-cols-3"
       } gap-6 px-4 md:px-6`}
     >
@@ -62,7 +62,7 @@ export default function Footer() {
         </main>
 
         <h3 className="text-lg md:text-xl font-medium my-3">TẢI ỨNG DỤNG TẠI</h3>
-        <main className="flex flex-col gap-3">
+        <main className="flex flex-col-2 gap-3">
           <div className="flex items-center gap-2">
             <img
               className="w-24 md:w-32 h-auto"
