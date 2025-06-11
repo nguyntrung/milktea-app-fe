@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Ban, Save, Package } from "lucide-react";
-import { putData, getData } from "@/lib/api";
+import { putData, getData, postData } from "@/lib/api";
 
 import {
   Dialog,
@@ -26,8 +26,6 @@ interface OrderIngredient {
   ten?: string;
   donViTinh?: string;
   soLuong: number;
-  donGia: number;
-  thanhTien: number;
 }
 
 // Định nghĩa interface cho đơn đặt hàng
@@ -139,8 +137,6 @@ export default function OrderIngredientsDialog({
             ten: detail.tenNguyenLieu,
             donViTinh: detail.donViTinh,
             soLuong: detail.soLuong || 1, // Nếu chưa có số lượng thì mặc định là 1
-            donGia: detail.donGia || 0,
-            thanhTien: detail.thanhTien || 0
           }));
           
           setIngredients(initialIngredients);
@@ -171,31 +167,11 @@ export default function OrderIngredientsDialog({
       prev.map(item => {
         if (item.maNguyenLieu === ingredientId) {
           const newQuantity = Math.max(0, quantity);
-          const thanhTien = newQuantity * item.donGia;
-          return { ...item, soLuong: newQuantity, thanhTien };
+          return { ...item, soLuong: newQuantity };
         }
         return item;
       })
     );
-  };
-
-  // Xử lý khi thay đổi đơn giá
-  const handlePriceChange = (ingredientId: string, price: number) => {
-    setIngredients(prev => 
-      prev.map(item => {
-        if (item.maNguyenLieu === ingredientId) {
-          const newPrice = Math.max(0, price);
-          const thanhTien = item.soLuong * newPrice;
-          return { ...item, donGia: newPrice, thanhTien };
-        }
-        return item;
-      })
-    );
-  };
-
-  // Tính tổng tiền
-  const calculateTotal = () => {
-    return ingredients.reduce((total, item) => total + item.thanhTien, 0);
   };
 
   // Xử lý nhập kho
@@ -204,9 +180,9 @@ export default function OrderIngredientsDialog({
       setLoading(true);
       
       // Kiểm tra dữ liệu đầu vào
-      const invalidIngredients = ingredients.filter(ing => ing.soLuong <= 0 || ing.donGia < 0);
+      const invalidIngredients = ingredients.filter(ing => ing.soLuong <= 0);
       if (invalidIngredients.length > 0) {
-        toast.error("Vui lòng nhập số lượng và đơn giá hợp lệ cho tất cả nguyên liệu");
+        toast.error("Vui lòng nhập số lượng hợp lệ cho tất cả nguyên liệu");
         setLoading(false);
         return;
       }
@@ -224,10 +200,9 @@ export default function OrderIngredientsDialog({
             maDonDat: ingredient.maDonDat,
             maNguyenLieu: ingredient.maNguyenLieu,
             soLuong: ingredient.soLuong,
-            donGia: ingredient.donGia
           };
           
-          return await putData(`/api/order-ingredient-details/${ingredient._id}`, updateDetailData);
+          return await postData(`/api/order-ingredient-details`, updateDetailData);
         }
         return null;
       });
@@ -245,7 +220,6 @@ export default function OrderIngredientsDialog({
 
       // Bước 2: Cập nhật đơn đặt hàng chính
       const updateOrderData = {
-        tongTien: calculateTotal(),
         ngayNhap: new Date().toISOString(),
         trangThai: "daNhap",
         nguoiNhap: getUserId() // Chỉ gửi ID, backend sẽ tự động xử lý object
@@ -268,14 +242,6 @@ export default function OrderIngredientsDialog({
     }
   };
 
-  // Format tiền tệ
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND"
-    }).format(amount);
-  };
-
   if (fetchLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -290,7 +256,7 @@ export default function OrderIngredientsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="min-w-[900px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="min-w-[700px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -352,15 +318,13 @@ export default function OrderIngredientsDialog({
                   <TableHead>Tên nguyên liệu</TableHead>
                   <TableHead>Đơn vị tính</TableHead>
                   <TableHead>Số lượng</TableHead>
-                  <TableHead>Đơn giá</TableHead>
-                  <TableHead>Thành tiền</TableHead>
                 </TableRow>
               </TableHeader>
 
               {ingredients.length === 0 ? (
                 <TableBody>
                   <TableRow>
-                    <TableCell colSpan={12}>
+                    <TableCell colSpan={4}>
                       <p className="text-muted-foreground py-4 text-center">Không có nguyên liệu nào</p>
                     </TableCell>
                   </TableRow>
@@ -402,47 +366,11 @@ export default function OrderIngredientsDialog({
                           disabled={orderData?.trangThai === "daNhap"}
                         />
                       </TableCell>
-
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={ingredient.donGia}
-                          onChange={(e) =>
-                            handlePriceChange(
-                              ingredient.maNguyenLieu!,
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          placeholder="Đơn giá"
-                          className="w-full"
-                          disabled={orderData?.trangThai === "daNhap"}
-                        />
-                      </TableCell>
-
-                      <TableCell className="col-span-3">
-                        <p className="font-medium text-destructive">
-                          {formatCurrency(ingredient.thanhTien)}
-                        </p>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               )}
             </Table>
-
-
-            {/* Tổng tiền */}
-            {ingredients.length > 0 && (
-              <div className="flex justify-end">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between min-w-[200px]">
-                    <span className="font-medium">Tổng tiền:</span>
-                    <span className="font-medium text-lg text-destructive">{formatCurrency(calculateTotal())}</span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

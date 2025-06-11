@@ -133,18 +133,18 @@ export default function OrderIngredients() {
         return <div>{format(date, "dd/MM/yyyy", { locale: vi })}</div>;
       },
     },
-    {
-      accessorKey: "tongTien",
-      header: "Tổng tiền",
-      cell: ({ row }) => {
-        const amount = parseFloat(row.getValue("tongTien"));
-        const formatted = new Intl.NumberFormat("vi-VN", {
-          style: "currency",
-          currency: "VND"
-        }).format(amount);
-        return <div className="font-medium">{formatted}</div>;
-      },
-    },
+    // {
+    //   accessorKey: "tongTien",
+    //   header: "Tổng tiền",
+    //   cell: ({ row }) => {
+    //     const amount = parseFloat(row.getValue("tongTien"));
+    //     const formatted = new Intl.NumberFormat("vi-VN", {
+    //       style: "currency",
+    //       currency: "VND"
+    //     }).format(amount);
+    //     return <div className="font-medium">{formatted}</div>;
+    //   },
+    // },
     {
       accessorKey: "trangThai",
       header: "Trạng thái",

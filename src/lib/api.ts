@@ -2,7 +2,8 @@ import axios from 'axios';
 
 // Tạo instance
 const api = axios.create({
-  baseURL: 'https://trasua.up.railway.app',
+  baseURL: 'https://forestbean.onrender.com',
+  // baseURL: 'http://localhost:5000', // Thay thế bằng URL của API của bạn
   timeout: 20000,
   headers: {
     'Content-Type': 'application/json',

@@ -82,6 +82,35 @@ interface CartApiResponse {
   };
 }
 
+interface Promotion {
+  _id: string;
+  maKhuyenMai: string;
+  tenKhuyenMai: string;
+  moTa: string;
+  loaiKhuyenMai: "giamPhanTram" | "giamTienMat";
+  doiTuongKhuyenMai: "hoaDon" | "sanPham";
+  sanPhamApDung: string[];
+  giaTri: number;
+  thoiGianApDung: {
+    batDau: string;
+    ketThuc: string;
+  };
+  hoaDonApDung: {
+    giaTriToiThieu: number;
+    giaTriToiDa: number;
+  };
+  soLuong: {
+    tongSoLuong: number;
+    daSuDung: number;
+    gioiHanMoiNguoiDung: number;
+  };
+}
+
+interface PromotionApiResponse {
+  success: boolean;
+  data: Promotion[];
+}
+
 interface PopulatedTopping {
   _id: string;
   ten: string;
@@ -90,6 +119,7 @@ interface PopulatedTopping {
 
 export default function MyCart() {
   const navigate = useNavigate();
+  const [agreed, setAgreed] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,13 +127,23 @@ export default function MyCart() {
   const [shippingFee] = useState<number>(0);
   const [discountCode, setDiscountCode] = useState<string>("");
   const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>("cod");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
   const [itemToEdit, setItemToEdit] = useState<{id: string, note: string} | null>(null);
+  const [, setIsApplyingDiscount] = useState<boolean>(false);
 
   useEffect(() => {
     fetchCartItems();
   }, []);
+
+  // Recalculate discount when selected items change
+  useEffect(() => {
+    if (appliedPromotion) {
+      const newDiscountAmount = calculateDiscountAmount(appliedPromotion);
+      setDiscountAmount(newDiscountAmount);
+    }
+  }, [selectedItems, appliedPromotion]);
 
   const fetchCartItems = async () => {
     try {
@@ -227,6 +267,143 @@ export default function MyCart() {
     }
   };
 
+  const validatePromotion = (promotion: Promotion): { isValid: boolean; message: string } => {
+    const now = new Date();
+    const startDate = new Date(promotion.thoiGianApDung.batDau);
+    const endDate = new Date(promotion.thoiGianApDung.ketThuc);
+    
+    // Kiểm tra thời gian hiệu lực
+    if (now < startDate) {
+      return { isValid: false, message: "Mã khuyến mãi chưa có hiệu lực" };
+    }
+    
+    if (now > endDate) {
+      return { isValid: false, message: "Mã khuyến mãi đã hết hạn" };
+    }
+    
+    // Kiểm tra số lượng
+    if (promotion.soLuong.daSuDung >= promotion.soLuong.tongSoLuong) {
+      return { isValid: false, message: "Mã khuyến mãi đã hết lượt sử dụng" };
+    }
+    
+    const subtotal = calculateSubtotal();
+    
+    // Kiểm tra giá trị tối thiểu của hóa đơn
+    if (subtotal < promotion.hoaDonApDung.giaTriToiThieu) {
+      return { 
+        isValid: false, 
+        message: `Đơn hàng cần tối thiểu ${formatPrice(promotion.hoaDonApDung.giaTriToiThieu)}` 
+      };
+    }
+    
+    // Kiểm tra sản phẩm áp dụng (nếu là khuyến mãi theo sản phẩm)
+    if (promotion.doiTuongKhuyenMai === "sanPham") {
+      const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+      const hasApplicableProduct = selectedCartItems.some(item => 
+        promotion.sanPhamApDung.includes(item.maSanPham)
+      );
+      
+      if (!hasApplicableProduct) {
+        return { isValid: false, message: "Không có sản phẩm nào trong giỏ hàng áp dụng được mã này" };
+      }
+    }
+    
+    return { isValid: true, message: "" };
+  };
+
+  const calculateDiscountAmount = (promotion: Promotion): number => {
+    const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+    
+    if (promotion.doiTuongKhuyenMai === "hoaDon") {
+      // Áp dụng cho toàn bộ hóa đơn
+      const subtotal = calculateSubtotal();
+      
+      if (promotion.loaiKhuyenMai === "giamPhanTram") {
+        const discountAmount = (subtotal * promotion.giaTri) / 100;
+        return Math.min(discountAmount, promotion.hoaDonApDung.giaTriToiDa);
+      } else {
+        // giamTienMat
+        return Math.min(promotion.giaTri, promotion.hoaDonApDung.giaTriToiDa);
+      }
+    } else {
+      // Áp dụng cho sản phẩm cụ thể
+      const applicableItems = selectedCartItems.filter(item => 
+        promotion.sanPhamApDung.includes(item.maSanPham)
+      );
+      
+      const applicableTotal = applicableItems.reduce((sum, item) => sum + item.tongGia, 0);
+      
+      if (promotion.loaiKhuyenMai === "giamPhanTram") {
+        const discountAmount = (applicableTotal * promotion.giaTri) / 100;
+        return Math.min(discountAmount, promotion.hoaDonApDung.giaTriToiDa);
+      } else {
+        // giamTienMat
+        return Math.min(promotion.giaTri, promotion.hoaDonApDung.giaTriToiDa);
+      }
+    }
+  };
+
+  const handleApplyDiscount = async () => {
+    if (!discountCode.trim()) {
+      toast.error("Vui lòng nhập mã giảm giá");
+      return;
+    }
+
+    setIsApplyingDiscount(true);
+    
+    try {
+      // Gọi API để lấy danh sách khuyến mãi
+      const response: PromotionApiResponse = await getData("/api/promotions");
+      
+      if (!response.success) {
+        throw new Error("Không thể tải thông tin khuyến mãi");
+      }
+      
+      // Tìm khuyến mãi theo mã
+      const promotion = response.data.find(p => p.maKhuyenMai === discountCode.trim());
+      
+      if (!promotion) {
+        setDiscountAmount(0);
+        setAppliedPromotion(null);
+        toast.error("Mã khuyến mãi không tồn tại");
+        return;
+      }
+      
+      // Validate khuyến mãi
+      const validation = validatePromotion(promotion);
+      
+      if (!validation.isValid) {
+        setDiscountAmount(0);
+        setAppliedPromotion(null);
+        toast.error(validation.message);
+        return;
+      }
+      
+      // Tính toán số tiền giảm giá
+      const discountAmount = calculateDiscountAmount(promotion);
+      
+      setDiscountAmount(discountAmount);
+      setAppliedPromotion(promotion);
+      
+      toast.success(`Áp dụng mã khuyến mãi thành công! Giảm ${formatPrice(discountAmount)}`);
+      
+    } catch (error) {
+      console.error("Lỗi khi áp dụng mã giảm giá:", error);
+      toast.error("Không thể áp dụng mã giảm giá. Vui lòng thử lại.");
+      setDiscountAmount(0);
+      setAppliedPromotion(null);
+    } finally {
+      setIsApplyingDiscount(false);
+    }
+  };
+
+  // const handleRemoveDiscount = () => {
+  //   setDiscountCode("");
+  //   setDiscountAmount(0);
+  //   setAppliedPromotion(null);
+  //   toast.success("Đã hủy mã giảm giá");
+  // };
+
   const handleQuantityChange = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
     
@@ -321,6 +498,11 @@ export default function MyCart() {
       setSelectedItems([]);
       setIsDeleteDialogOpen(false);
       
+      // Reset discount khi xóa giỏ hàng
+      setDiscountCode("");
+      setDiscountAmount(0);
+      setAppliedPromotion(null);
+      
       toast.success("Đã xóa toàn bộ giỏ hàng");
     } catch (error) {
       console.error("Lỗi khi xóa giỏ hàng:", error);
@@ -354,18 +536,6 @@ export default function MyCart() {
     return calculateSubtotal() + shippingFee - discountAmount;
   };
 
-  const handleApplyDiscount = () => {
-    // Giả lập áp dụng mã giảm giá
-    if (discountCode.trim()) {
-      // Trong thực tế, cần gọi API để kiểm tra mã giảm giá
-      setDiscountAmount(10000); // Giả sử giảm 10,000 VND
-      toast.success("Áp dụng mã giảm giá thành công");
-    } else {
-      setDiscountAmount(0);
-      toast.error("Vui lòng nhập mã giảm giá");
-    }
-  };
-
   const handleCheckout = () => {
     if (selectedItems.length === 0) {
       toast.error("Vui lòng chọn ít nhất một sản phẩm để thanh toán");
@@ -380,7 +550,9 @@ export default function MyCart() {
         shipping: shippingFee,
         discount: discountAmount,
         total: calculateTotal(),
-        paymentMethod
+        paymentMethod,
+        appliedPromotion,
+        maKhuyenMai: appliedPromotion?.maKhuyenMai || null
       }
     });
   };
@@ -545,7 +717,7 @@ export default function MyCart() {
           
           {/* Thông tin thanh toán */}
           <div className="lg:col-span-1">
-            <div className="bg-card rounded-md shadow-md p-4 sticky top-33">
+            <div className="bg-card rounded-md shadow-md p-4 sticky top-39">
               <h2 className="text-xl font-bold mb-4">Thông tin thanh toán</h2>
               
               <div className="space-y-3 mb-4">
@@ -553,16 +725,10 @@ export default function MyCart() {
                   <span>Tổng tiền tạm tính</span>
                   <span>{formatPrice(calculateSubtotal())}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Phí vận chuyển</span>
-                  <span>{formatPrice(shippingFee)}</span>
+                <div className="flex justify-between text-green-600">
+                  <span>Giảm giá</span>
+                  <span>-{formatPrice(discountAmount)}</span>
                 </div>
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Giảm giá</span>
-                    <span>-{formatPrice(discountAmount)}</span>
-                  </div>
-                )}
                 <div className="border-t pt-3 flex justify-between font-bold">
                   <span>Tổng tiền (Đã có VAT)</span>
                   <span className="text-destructive">{formatPrice(calculateTotal())}</span>
@@ -610,7 +776,12 @@ export default function MyCart() {
               </div>
               
               <div className="flex items-center mb-4">
-                <Checkbox id="terms" className="mr-2" />
+                <Checkbox
+                  id="terms"
+                  className="mr-2"
+                  checked={agreed}
+                  onCheckedChange={(checked) => setAgreed(checked === true)}
+                />
                 <label htmlFor="terms" className="text-sm">
                   Tôi đã đọc, hiểu và đồng ý với tất cả các điều khoản, điều kiện và chính sách liên quan
                 </label>
@@ -619,7 +790,7 @@ export default function MyCart() {
               <Button 
                 className="w-full bg-primary"
                 onClick={handleCheckout}
-                disabled={selectedItems.length === 0}
+                disabled={selectedItems.length === 0 || !agreed}
               >
                 Tiến hành thanh toán
               </Button>

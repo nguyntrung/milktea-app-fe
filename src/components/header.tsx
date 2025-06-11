@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Bell, Box, LogOut, ShoppingCart, Store, User, Home, Package, MapPin, Mail, UserCircle } from "lucide-react";
+import { Bell, Box, LogOut, ShoppingCart, Store, User, Home, Package, Mail, UserCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getData } from "@/lib/api";
 import SearchComponent from "./search";
@@ -19,12 +19,17 @@ interface HeaderProps {
   setIsAdmin: (value: boolean) => void;
 }
 
-function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps) {
+function Header({ isLoggedIn, setIsLoggedIn, setIsAdmin }: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [cartItemCount, setCartItemCount] = useState(0);
   const isMobile = useIsMobile();
   const [storeLogo, setStoreLogo] = useState<string>("https://res.cloudinary.com/db4xiceow/image/upload/v1747460240/logo-no-background.png");
+
+  const userRole = localStorage.getItem("role") || "user";
+  const userInfoString = localStorage.getItem("userInfo");
+  const userInfo = userInfoString ? JSON.parse(userInfoString) : {};
+  
 
   useEffect(() => {
     // Lấy thông tin cửa hàng từ API
@@ -77,9 +82,19 @@ function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps)
   };
 
   const handleSwitchToAdmin = () => {
+    const role = localStorage.getItem("role");
+
+    let path = "/admin";
+    if (role === "employee" || role === "shipper") {
+      path = "/admin/orders";
+    } else if (role === "nhan-vien-kho") {
+      path = "/admin/order-ingredients";
+    }
+
     setIsAdmin(true);
-    navigate("/admin");
+    navigate(path);
   };
+
 
   // Bottom Navigation Items
   const bottomNavItems = [
@@ -96,22 +111,22 @@ function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps)
       active: location.pathname.startsWith("/products")
     },
     {
-      icon: MapPin,
-      label: "Cửa hàng",
-      path: "/store",
-      active: location.pathname === "/store"
+      icon: Box,
+      label: "Đơn hàng",
+      path: "/orders",
+      active: location.pathname === "/orders"
     },
     {
       icon: Mail,
       label: "Hộp thư",
-      path: "/messages",
-      active: location.pathname === "/messages"
+      path: "/notification",
+      active: location.pathname === "/notification"
     },
     {
       icon: UserCircle,
       label: "Tài khoản",
       path: isLoggedIn ? "/profile" : "/sign-in",
-      active: location.pathname === "/profile" || location.pathname === "/orders"
+      active: location.pathname === "/profile"
     }
   ];
 
@@ -186,13 +201,15 @@ function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps)
               
               {/* Notifications - Desktop only */}
               {!isMobile && (
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="h-10 w-10 lg:h-12 lg:w-12 rounded-full hover:bg-gray-100"
-                >
-                  <Bell className="h-5 w-5 lg:h-6 lg:w-6" />
-                </Button>
+                <Link to="/notification">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="h-10 w-10 lg:h-12 lg:w-12 rounded-full hover:bg-gray-100"
+                  >
+                    <Bell className="h-5 w-5 lg:h-6 lg:w-6" />
+                  </Button>
+                </Link>
               )}
               
               {/* Auth Buttons or User Menu - Desktop only */}
@@ -208,7 +225,7 @@ function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps)
                     </Button>
                     <Button 
                       onClick={() => navigate("/sign-in")} 
-                      className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+                      className="px-4 py-2 rounded-full bg-primary text-white"
                     >
                       Đăng nhập
                     </Button>
@@ -225,7 +242,7 @@ function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps)
                           alt="Avatar" 
                           className="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover" 
                         /> 
-                        <span className="hidden lg:inline font-medium">demo</span>
+                        <span className="hidden lg:inline font-medium">{userInfo.ten}</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
@@ -236,7 +253,7 @@ function Header({ isLoggedIn, setIsLoggedIn, isAdmin, setIsAdmin }: HeaderProps)
                         <User size={18} />
                         <span>Tài khoản của tôi</span>
                       </DropdownMenuItem>
-                      {isAdmin && (
+                      {userRole !== "user" && (
                         <DropdownMenuItem 
                           onClick={handleSwitchToAdmin} 
                           className="cursor-pointer flex items-center space-x-2 p-3"

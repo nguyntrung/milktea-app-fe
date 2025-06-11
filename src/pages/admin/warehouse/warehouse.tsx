@@ -64,6 +64,8 @@ export default function Warehouse() {
   const [saving, setSaving] = useState(false);
   const [initialEndOfDayData, setInitialEndOfDayData] = useState<EndOfDayIngredient[]>([]);
 
+  const role = localStorage.getItem('role');
+
   // Lấy thống kê nguyên liệu
   const fetchData = async () => {
     if (!date) return; // Skip if no date is selected
@@ -238,11 +240,11 @@ export default function Warehouse() {
     },
     {
       id: "canNhap",
-      header: () => <div className="text-center">Cần nhập</div>,
+      header: () => <div className={`text-center ${role === "admin" ? "" : "hidden"}`}>Cần nhập</div>,
       cell: ({ row }) => {
         const ingredient = row.original;
         return (
-          <div className="text-center">
+          <div className={`text-center ${role === "admin" ? "" : "hidden"}`}>
             <Checkbox
               checked={ingredient.canNhap}
               onCheckedChange={(checked) => 

@@ -36,6 +36,7 @@ interface Order {
   maHoaDon: string;
   ngayTao: string;
   trangThai: TrangThaiDonHang;
+  phiVanChuyen: number;
   tongTien: number;
   thongTinNguoiNhan: {
     ten: string;
@@ -68,6 +69,7 @@ interface OrderResponse {
     ten: string;
   };
   ngayLap: string;
+  phiVanChuyen: number;
   tongTienHang: number;
   tongTien: number;
   nguoiGiao: string;
@@ -242,6 +244,7 @@ export default function OrderDetail() {
           maHoaDon: orderData._id,
           ngayTao: orderData.ngayTao,
           trangThai: trangThai,
+          phiVanChuyen: orderData.phiVanChuyen || 0,
           tongTien: orderData.tongTien || 0,
           thongTinNguoiNhan,
           items,
@@ -511,11 +514,11 @@ export default function OrderDetail() {
               </div>
               <div className="flex justify-between text-sm">
                 <span>Phí vận chuyển:</span>
-                <span>{formatPrice(0)}</span>
+                <span>{formatPrice(order.phiVanChuyen)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm text-green-600">
                 <span>Giảm giá:</span>
-                <span>-{formatPrice(order.items.reduce((sum, item) => sum + item.tongGia, 0) - order.tongTien)}</span>
+                <span>-{formatPrice(order.items.reduce((sum, item) => sum + item.tongGia, 0) + order.phiVanChuyen - order.tongTien)}</span>
               </div>
               <div className="border-t pt-3 mt-2 flex justify-between font-medium">
                 <span>Tổng cộng:</span>

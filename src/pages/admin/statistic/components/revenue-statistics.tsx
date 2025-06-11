@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { TrendingUp, Calendar as CalendarIcon, DollarSign, Search, BarChart3, LineChart as LineChartIcon } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, DollarSign, BarChart3 } from 'lucide-react';
 import { getData } from '@/lib/api';
 import { format } from 'date-fns';
 
 // UI Components
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -47,7 +46,7 @@ export default function RevenueStatistics() {
         const year = selectedDate.getFullYear();
         
         switch (activeTab) {
-          case 'month':
+          case 'month': {
             const monthResponse = await getData(`/api/statistic-ingredients/revenue/month?month=${month}&year=${year}`);
             if (monthResponse.success) {
               // Nếu API trả về một object đơn lẻ, chuyển thành mảng để dễ xử lý
@@ -57,8 +56,9 @@ export default function RevenueStatistics() {
               setMonthlyData(data);
             }
             break;
+          }
             
-          case 'daily':
+          case 'daily': {
             const dailyResponse = await getData(`/api/statistic-ingredients/revenue/daily?day=${day}&month=${month}&year=${year}`);
             if (dailyResponse.success) {
               const data = Array.isArray(dailyResponse.data) 
@@ -67,9 +67,10 @@ export default function RevenueStatistics() {
               setDailyData(data);
             }
             break;
+          }
             
-          case 'yearly':
-            const yearlyResponse = await getData(`/api/statistic-ingredients/revenue/yearly?year=${year}`);
+          case 'yearly': {
+            const yearlyResponse = await getData(`/api/statistic-ingredients/revenue/year?year=${year}`);
             if (yearlyResponse.success) {
               const data = Array.isArray(yearlyResponse.data) 
                 ? yearlyResponse.data 
@@ -77,6 +78,7 @@ export default function RevenueStatistics() {
               setYearlyData(data);
             }
             break;
+          }
         }
       } catch (error) {
         console.error("Lỗi khi tải dữ liệu thống kê doanh thu:", error);
@@ -127,7 +129,17 @@ export default function RevenueStatistics() {
   };
 
   // Stat Card component using Card component
-  const StatCard = ({ title, value, icon: Icon, color = "blue" }) => (
+  const StatCard = ({ 
+    title, 
+    value, 
+    icon: Icon, 
+    color = "blue" 
+  }: {
+    title: string;
+    value: string;
+    icon: React.ElementType;
+    color?: string;
+  }) => (
     <Card className={`border-l-4 border-${color}-500 hover:shadow-xl transition-shadow`}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
@@ -188,7 +200,7 @@ export default function RevenueStatistics() {
 
         {/* Tabs */}
         <Card>
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+          <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as 'daily' | 'month' | 'yearly')}>
             <TabsList className="w-full border-b border-muted rounded-md p-0">
               {Object.entries(tabConfig).map(([key, config]) => {
                 const Icon = config.icon;

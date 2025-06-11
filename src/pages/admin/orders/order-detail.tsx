@@ -53,6 +53,7 @@ interface Order {
     ten: string;
   };
   ngayLap: string;
+  phiVanChuyen: number;
   tongTienHang: number;
   tongTien: number;
   khuyenMai: Array<{
@@ -413,7 +414,7 @@ export default function OrderDetailManage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="text-sm text-muted-foreground">Phí vận chuyển:</div>
-                  <div className="text-sm text-right">0 ₫</div>
+                  <div className="text-sm text-right">{formatPrice(order.phiVanChuyen)}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="text-sm text-muted-foreground">Giảm giá:</div>
