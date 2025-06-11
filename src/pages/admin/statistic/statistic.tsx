@@ -6,6 +6,7 @@ export default function Statistic() {
     <>
       <StatisticsDate />
       <RevenueStatistics />
+      Thống kê
     </>
   );
 }

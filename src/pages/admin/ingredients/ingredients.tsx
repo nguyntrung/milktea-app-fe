@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { getData, postData, putData } from "@/lib/api";
-import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -27,9 +26,12 @@ interface Ingredient {
   _id: string;
   ten: string;
   donViTinh: string;
-  nguongCanhBao: number;
-  maNhaCungCap: string[];
+  nhaCungCap: Array<{
+    maNhacungCap: string;
+    donGia: number;
+  }>;
   hoatDong: boolean;
+  nguyenLieuHaoHut: boolean;
   ngayTao: string;
   ngayCapNhat: string;
 }
@@ -93,7 +95,7 @@ export default function IngredientsPage() {
   };
 
   // Xử lý khi submit form
-  const handleSubmitIngredient = async (data: Omit<Ingredient, '_id' | 'ngayTao' | 'ngayCapNhat' | 'hoatDong'>) => {
+  const handleSubmitIngredient = async (data: Omit<Ingredient, '_id' | 'ngayTao' | 'ngayCapNhat'>) => {
     try {
       if (dialogMode === "add") {
         // Thêm mới
@@ -111,20 +113,18 @@ export default function IngredientsPage() {
   };
 
   // Hàm lấy tên nhà cung cấp từ ID
-  const getSupplierNames = (supplierIds: string[] | any[]) => {
-    if (!supplierIds || !supplierIds.length) return "Không có";
-    
-    return supplierIds.map(item => {
-      // Kiểm tra nếu item là object (đã được populate)
-      if (typeof item === 'object' && item !== null && item._id && item.ten) {
-        return item.ten;
-      }
-      
-      // Nếu item là string (ID), tìm tên từ danh sách suppliers
-      const supplier = suppliers.find(s => s._id === item);
-      return supplier ? supplier.ten : item;
-    }).join(", ");
+  const getSupplierNames = (
+    supplierData: Array<{ maNhacungCap: string; donGia: number }>
+  ) => {
+    if (!supplierData || !supplierData.length) return ["Không có"];
+
+    return supplierData.map((item) => {
+      const supplier = suppliers.find((s) => s._id === item.maNhacungCap);
+      const supplierName = supplier ? supplier.ten : item.maNhacungCap;
+      return `${supplierName} - ${item.donGia.toLocaleString("vi-VN")}đ`;
+    });
   };
+
 
   // Định nghĩa cột cho bảng
   const columns: ColumnDef<Ingredient>[] = [
@@ -143,7 +143,14 @@ export default function IngredientsPage() {
       header: "Nhà cung cấp",
       cell: ({ row }) => {
         const ingredient = row.original;
-        return <div>{getSupplierNames(ingredient.maNhaCungCap)}</div>;
+        const supplierLines = getSupplierNames(ingredient.nhaCungCap);
+        return (
+          <div className="max-w-xs text-muted-foreground whitespace-pre-line" title={supplierLines.join("\n")}>
+            {supplierLines.map((line, index) => (
+              <div key={index}>{supplierLines.length > 1 ? `${index + 1}. ` : ""} {line}</div>
+            ))}
+          </div>
+        );
       },
     },
     {
@@ -151,13 +158,13 @@ export default function IngredientsPage() {
       header: "Trạng thái",
       cell: ({ row }) => (
         <div
-            className={`px-4 py-2 rounded w-fit 
-              ${row.getValue("hoatDong") 
-                ? "text-green-700 bg-green-100" 
-                : "text-red-700 bg-red-100"}`}
-          >
-            {row.getValue("hoatDong") ? "Hoạt động" : "Không hoạt động"}
-          </div>
+          className={`px-3 py-1 rounded text-xs font-medium w-fit 
+            ${row.getValue("hoatDong")
+              ? "text-green-700 bg-green-100" 
+              : "text-red-700 bg-red-100"}`}
+        >
+          {row.getValue("hoatDong") ? "Hoạt động" : "Không hoạt động"}
+        </div>
       ),
     },
     {
@@ -202,7 +209,7 @@ export default function IngredientsPage() {
   });
 
   return (
-    <div className="bg-card h-fit w-full rounded-md p-3 shadow-md">
+    <div className="bg-card h-fit w-full rounded-md p-3 mb-3 shadow-md">
       <h3 className="text-2xl font-bold mb-3">Danh sách nguyên liệu</h3>
       
       {loading && ingredients.length === 0 ? (
@@ -310,6 +317,7 @@ export default function IngredientsPage() {
         ingredient={selectedIngredient}
         onSubmit={handleSubmitIngredient}
         mode={dialogMode}
+        suppliers={suppliers}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Package, Calendar as CalendarIcon, DollarSign, Coffee, Search, Download, BarChart3, LineChart as LineChartIcon, RefreshCcw } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { TrendingUp, Package, Calendar as CalendarIcon, Coffee, Search, BarChart3 } from 'lucide-react';
 import { getData } from '@/lib/api';
 import { format } from 'date-fns';
 
@@ -14,7 +14,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
-// Interfaces from your existing code
+// Interfaces
 interface IngredientStatistic {
   donViTinh: string;
   tenNguyenLieu: string | null;
@@ -44,20 +44,28 @@ interface RevenueStatistic {
   giaTriTrungBinh: number;
 }
 
+interface StatCardProps {
+  title: string;
+  value: number | string;
+  unit: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color?: string;
+}
+
 export default function IngredientStatistics() {
   const [activeTab, setActiveTab] = useState<'daily' | 'month' | 'yearly' | 'revenue'>('month');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIngredient, setSelectedIngredient] = useState('all');
   const [calendarOpen, setCalendarOpen] = useState(false);
-  
+
   // Data states
   const [monthlyData, setMonthlyData] = useState<IngredientStatistic[]>([]);
   const [dailyData, setDailyData] = useState<DailyIngredientStatistic[]>([]);
   const [yearlyData, setYearlyData] = useState<YearlyIngredientStatistic[]>([]);
-  const [revenueData, setRevenueData] = useState<RevenueStatistic[]>([]);
-  const [ingredients, setIngredients] = useState<{[key: string]: string}>({});
-  
+  const [revenueData, ] = useState<RevenueStatistic[]>([]);
+  const [ingredients, setIngredients] = useState<{ [key: string]: string }>({});
+
   // Loading and error states
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +76,8 @@ export default function IngredientStatistics() {
       try {
         const response = await getData("/api/ingredients");
         if (response.success && Array.isArray(response.data)) {
-          const ingredientsMap: {[key: string]: string} = {};
-          response.data.forEach((ingredient: any) => {
+          const ingredientsMap: { [key: string]: string } = {};
+          response.data.forEach((ingredient: { _id: string; ten: string }) => {
             ingredientsMap[ingredient._id] = ingredient.ten;
           });
           setIngredients(ingredientsMap);
@@ -88,39 +96,35 @@ export default function IngredientStatistics() {
       try {
         setLoading(true);
         setError(null);
-        
+
         const day = selectedDate.getDate();
         const month = selectedDate.getMonth() + 1;
         const year = selectedDate.getFullYear();
-        
+
         switch (activeTab) {
-          case 'month':
+          case 'month': {
             const monthResponse = await getData(`/api/statistic-ingredients/month?month=${month}&year=${year}`);
             if (monthResponse.success && Array.isArray(monthResponse.data)) {
               setMonthlyData(monthResponse.data);
             }
             break;
-            
-          case 'daily':
+          }
+
+          case 'daily': {
             const dailyResponse = await getData(`/api/statistic-ingredients/daily?day=${day}&month=${month}&year=${year}`);
             if (dailyResponse.success && Array.isArray(dailyResponse.data)) {
               setDailyData(dailyResponse.data);
             }
             break;
-            
-          case 'yearly':
-            const yearlyResponse = await getData(`/api/statistic-ingredients/yearly?year=${year}`);
+          }
+
+          case 'yearly': {
+            const yearlyResponse = await getData(`/api/statistic-ingredients/year?year=${year}`);
             if (yearlyResponse.success && Array.isArray(yearlyResponse.data)) {
               setYearlyData(yearlyResponse.data);
             }
             break;
-            
-          case 'revenue':
-            const revenueResponse = await getData(`/api/statistic-ingredients/revenue/month?month=${month}&year=${year}`);
-            if (revenueResponse.success && Array.isArray(revenueResponse.data)) {
-              setRevenueData(revenueResponse.data);
-            }
-            break;
+          }
         }
       } catch (error) {
         console.error("Lỗi khi tải dữ liệu thống kê:", error);
@@ -165,7 +169,7 @@ export default function IngredientStatistics() {
   const currentData = getCurrentData();
 
   // Filter data based on search and ingredient selection
-  const filteredData = currentData.filter((item: any) => {
+  const filteredData = currentData.filter((item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => {
     const ingredientName = getIngredientName(item.maNguyenLieu);
     const matchesIngredient = selectedIngredient === 'all' || item.maNguyenLieu === selectedIngredient;
     const matchesSearch = ingredientName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -173,24 +177,24 @@ export default function IngredientStatistics() {
   });
 
   // Prepare chart data
-  const chartData = filteredData.map((item: any, index) => ({
+  const chartData = filteredData.map((item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic, index) => ({
     name: getIngredientName(item.maNguyenLieu),
-    'Tồn đầu': item.soLuongBanDau || item.tongSoLuongBanDau || 0,
-    'Nhập kho': item.tongSoLuongNhap || 0,
+    'Tồn đầu': 'soLuongBanDau' in item ? item.soLuongBanDau : 'tongSoLuongBanDau' in item ? item.tongSoLuongBanDau : 0,
+    'Nhập kho': 'tongSoLuongNhap' in item ? item.tongSoLuongNhap : 0,
     'Bán ra': item.tongSoLuongBan || 0,
-    'Hao hụt': item.tongSoLuongHaoHut || 0,
-    'Tồn cuối': item.soLuongTon || 0,
-    'Doanh thu': item.tongDoanhThu || 0,
+    'Hao hụt': 'tongSoLuongHaoHut' in item ? item.tongSoLuongHaoHut : 0,
+    'Tồn cuối': 'soLuongTon' in item ? item.soLuongTon : 0,
+    'Doanh thu': 'tongDoanhThu' in item ? item.tongDoanhThu : 0,
     date: (() => {
-      const parsedDate = new Date(item.ngay);
+      const parsedDate = new Date(('ngay' in item ? item.ngay : new Date()).toString());
       return isNaN(parsedDate.getTime()) ? `Item ${index + 1}` : format(parsedDate, 'dd/MM');
-    })()    
+    })(),
   }));
 
   // Prepare pie chart data
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
   const pieData = Object.entries(
-    filteredData.reduce((acc: any, item: any) => {
+    filteredData.reduce((acc: Record<string, number>, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => {
       const name = getIngredientName(item.maNguyenLieu);
       const sold = item.tongSoLuongBan || 0;
       acc[name] = (acc[name] || 0) + sold;
@@ -199,15 +203,18 @@ export default function IngredientStatistics() {
   ).map(([name, value], index) => ({
     name,
     value: value as number,
-    color: COLORS[index % COLORS.length]
+    color: COLORS[index % COLORS.length],
   }));
 
   // Calculate total statistics
   const totalStats = {
-    totalSold: filteredData.reduce((sum: number, item: any) => sum + (item.tongSoLuongBan || 0), 0),
-    totalImported: filteredData.reduce((sum: number, item: any) => sum + (item.tongSoLuongNhap || 0), 0),
-    totalRevenue: filteredData.reduce((sum: number, item: any) => sum + (item.tongDoanhThu || 0), 0),
-    totalRemaining: filteredData.reduce((sum: number, item: any) => sum + Math.max(0, item.soLuongTon || 0), 0)
+    totalSold: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + (item.tongSoLuongBan || 0), 0),
+    totalImported: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + ('tongSoLuongNhap' in item ? item.tongSoLuongNhap : 0), 0),
+    totalRevenue: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + ('tongDoanhThu' in item ? item.tongDoanhThu : 0), 0),
+    totalRemaining: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => {
+      const remaining = 'soLuongTon' in item ? item.soLuongTon : 0;
+      return sum + Math.max(0, remaining);
+    }, 0),
   };
 
   const tabConfig = {
@@ -216,8 +223,8 @@ export default function IngredientStatistics() {
     yearly: { title: 'Thống kê theo năm', icon: TrendingUp },
   };
 
-  // Stat Card component using Card component
-  const StatCard = ({ title, value, unit, icon: Icon, color = "blue" }) => (
+  // Stat Card component
+  const StatCard = ({ title, value, unit, icon: Icon, color = "blue" }: StatCardProps) => (
     <Card className={`border-l-4 border-${color}-500 hover:shadow-xl transition-shadow`}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
@@ -237,7 +244,7 @@ export default function IngredientStatistics() {
   );
 
   // Get unique ingredients for filter dropdown
-  const uniqueIngredients = [...new Set(currentData.map((item: any) => item.maNguyenLieu))];
+  const uniqueIngredients = [...new Set(currentData.map((item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => item.maNguyenLieu))];
 
   return (
     <Card className='bg-background rounded-lg shadow-md mb-3'>
@@ -252,7 +259,7 @@ export default function IngredientStatistics() {
         {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6">
           <div className="relative col-span-2">
-            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muinted-foreground">
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
               <Search className="w-4 h-4" />
             </div>
             <Input
@@ -263,7 +270,7 @@ export default function IngredientStatistics() {
               className="pl-10"
             />
           </div>
-          
+
           <Select value={selectedIngredient} onValueChange={setSelectedIngredient}>
             <SelectTrigger>
               <SelectValue placeholder="Chọn nguyên liệu" />
@@ -280,8 +287,8 @@ export default function IngredientStatistics() {
 
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start text-left font-normal"
               >
                 <CalendarIcon className="w-4 h-4 mr-2" />
@@ -306,13 +313,13 @@ export default function IngredientStatistics() {
 
         {/* Tabs */}
         <Card>
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'daily' | 'month' | 'yearly' | 'revenue')}>
             <TabsList className="w-full border-b border-muted rounded-md p-0">
               {Object.entries(tabConfig).map(([key, config]) => {
                 const Icon = config.icon;
                 return (
-                  <TabsTrigger 
-                    key={key} 
+                  <TabsTrigger
+                    key={key}
                     value={key}
                     className="flex items-center px-6 py-4 rounded border-b-2 border-transparent data-[state=active]:bg-primary data-[state=active]:text-background"
                   >
@@ -407,7 +414,7 @@ export default function IngredientStatistics() {
                                   fill="#8884d8"
                                   dataKey="value"
                                 >
-                                  {pieData.map((entry, index) => (
+                                  {pieData.map((_, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                   ))}
                                 </Pie>
@@ -417,29 +424,6 @@ export default function IngredientStatistics() {
                           </CardContent>
                         </Card>
 
-                        {/* Line Chart */}
-                        {/* {activeTab !== 'revenue' && (
-                          <Card className="lg:col-span-2">
-                            <CardHeader className='mt-4'>
-                              <CardTitle className='text-center'>Biểu đồ xu hướng theo thời gian</CardTitle>
-                            </CardHeader>
-                            <CardContent className="bg-gray-50 rounded-xl p-6">
-                              <ResponsiveContainer width="100%" height={300}>
-                                <LineChart data={chartData}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="date" />
-                                  <YAxis />
-                                  <Tooltip />
-                                  <Legend />
-                                  <Line type="monotone" dataKey="Bán ra" stroke="#ef4444" strokeWidth={2} />
-                                  <Line type="monotone" dataKey="Nhập kho" stroke="#22c55e" strokeWidth={2} />
-                                  <Line type="monotone" dataKey="Tồn cuối" stroke="#3b82f6" strokeWidth={2} />
-                                </LineChart>
-                              </ResponsiveContainer>
-                            </CardContent>
-                          </Card>
-                        )} */}
-
                         {/* Revenue Chart */}
                         {activeTab === 'revenue' && (
                           <Card className="lg:col-span-2">
@@ -448,14 +432,14 @@ export default function IngredientStatistics() {
                             </CardHeader>
                             <CardContent className="bg-gray-50 rounded-xl p-6">
                               <ResponsiveContainer width="100%" height={300}>
-                                <LineChart data={chartData}>
+                                <BarChart data={chartData}>
                                   <CartesianGrid strokeDasharray="3 3" />
                                   <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
                                   <YAxis />
-                                  <Tooltip formatter={(value) => [value.toLocaleString() + ' VNĐ', 'Doanh thu']} />
+                                  <Tooltip formatter={(value) => [`${Number(value).toLocaleString()} VNĐ`, 'Doanh thu']} />
                                   <Legend />
-                                  <Line type="monotone" dataKey="Doanh thu" stroke="#8884d8" strokeWidth={2} />
-                                </LineChart>
+                                  <Bar dataKey="Doanh thu" fill="#8884d8" radius={[3, 3, 0, 0]} />
+                                </BarChart>
                               </ResponsiveContainer>
                             </CardContent>
                           </Card>
@@ -465,7 +449,7 @@ export default function IngredientStatistics() {
                       {/* Data Table */}
                       <div>
                         <div className='font-medium text-center mb-2'>
-                          Chi tiết dữ liệu - {tabConfig[activeTab].title}
+                          Chi tiết dữ liệu - {activeTab === 'revenue' ? 'Thống kê doanh thu' : tabConfig[activeTab as keyof typeof tabConfig].title}
                         </div>
                         <Table>
                           <TableHeader>
@@ -473,7 +457,6 @@ export default function IngredientStatistics() {
                               {activeTab === 'daily' && <TableHead>Ngày</TableHead>}
                               {activeTab === 'yearly' && <TableHead>Năm</TableHead>}
                               <TableHead>Nguyên liệu</TableHead>
-                              {/* <TableHead>Đơn vị</TableHead> */}
                               <TableHead className="text-right">Tổng nguyên liệu</TableHead>
                               <TableHead className="text-right">Tồn đầu</TableHead>
                               <TableHead className="text-right">Nhập</TableHead>
@@ -484,41 +467,47 @@ export default function IngredientStatistics() {
                             </TableRow>
                           </TableHeader>
                           <TableBody className='border rounded'>
-                            {filteredData.map((item: any, index) => (
+                            {filteredData.map((item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic, index) => (
                               <TableRow key={index} className="hover:bg-gray-50">
                                 {activeTab === 'daily' && (
                                   <TableCell>
-                                    {format(new Date(item.ngay), 'dd/MM/yyyy')}
+                                    {'ngay' in item ? format(new Date(item.ngay), 'dd/MM/yyyy') : '-'}
                                   </TableCell>
                                 )}
                                 {activeTab === 'yearly' && (
-                                  <TableCell>{item.nam}</TableCell>
+                                  <TableCell>{'nam' in item ? item.nam : '-'}</TableCell>
                                 )}
                                 <TableCell className="font-medium">
                                   {getIngredientName(item.maNguyenLieu)}
                                 </TableCell>
-                                {/* <TableCell>{item.donViTinh}</TableCell> */}
                                 <TableCell className="text-left">
-                                  {formatQuantity(item.tongSoLuongTon || item.tongSoLuongTon, item.donViTinh)}
+                                  {formatQuantity('soLuongTon' in item ? item.soLuongTon : 0, item.donViTinh)}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {formatQuantity(item.soLuongBanDau || item.tongSoLuongBanDau, item.donViTinh)}
+                                  {formatQuantity(
+                                    'soLuongBanDau' in item
+                                      ? item.soLuongBanDau
+                                      : 'tongSoLuongBanDau' in item && typeof item.tongSoLuongBanDau === 'number'
+                                      ? item.tongSoLuongBanDau
+                                      : 0,
+                                    item.donViTinh
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right text-green-600">
-                                  {formatQuantity(item.tongSoLuongNhap, item.donViTinh)}
+                                  {formatQuantity('tongSoLuongNhap' in item ? item.tongSoLuongNhap : 0, item.donViTinh)}
                                 </TableCell>
                                 <TableCell className="text-right text-red-600">
                                   {formatQuantity(item.tongSoLuongBan, item.donViTinh)}
                                 </TableCell>
                                 <TableCell className="text-right text-amber-600">
-                                  {formatQuantity(item.tongSoLuongHaoHut, item.donViTinh)}
+                                  {formatQuantity('tongSoLuongHaoHut' in item ? item.tongSoLuongHaoHut : 0, item.donViTinh)}
                                 </TableCell>
-                                <TableCell className={`text-right ${item.soLuongTon < 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                                  {formatQuantity(item.soLuongTon, item.donViTinh)}
+                                <TableCell className={`text-right ${'soLuongTon' in item && item.soLuongTon < 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                                  {formatQuantity('soLuongTon' in item ? item.soLuongTon : 0, item.donViTinh)}
                                 </TableCell>
                                 {activeTab === 'revenue' && (
                                   <TableCell className="text-right text-purple-600">
-                                    {(item.tongDoanhThu || 0).toLocaleString()} VNĐ
+                                    {'tongDoanhThu' in item ? item.tongDoanhThu.toLocaleString() : 0} VNĐ
                                   </TableCell>
                                 )}
                               </TableRow>
@@ -536,4 +525,4 @@ export default function IngredientStatistics() {
       </CardContent>
     </Card>
   );
-};
+}

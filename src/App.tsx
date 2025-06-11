@@ -2,52 +2,80 @@ import { useState, useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import Header from "./components/header";
 import Footer from "./components/footer";
-import HomePage from "./pages/web/home-page/home-page";
-import Categories from "./pages/admin/categories/categories";
-import LayoutAdmin from "./pages/admin/layout-admin";
-import Orders from "./pages/admin/orders/orders";
-import OrderDetailManage from "./pages/admin/orders/order-detail";
-import SignIn from "./pages/auth/sign-in";
-import Statistic from "./pages/admin/statistic/statistic";
-import Products from "./pages/admin/products/products";
-import ProductAdd from "./pages/admin/products/product-add";
-import SuppliersPage from "./pages/admin/suppliers/suppliers";
-import ToppingsPage from "./pages/admin/toppings/toppings";
-import IngredientsPage from "./pages/admin/ingredients/ingredients";
-import OrderIngredientsPage from "./pages/admin/order-ingredients/order-ingredients";
-import ProductList from "./pages/web/product-list/product-list";
-import ProductDetail from "./pages/web/product-list/product-detail";
-import MyCart from "./pages/web/my-cart/my-cart";
-import Checkout from "./pages/web/checkout/checkout";
-import OrderSuccess from "./pages/web/order-success/order-success";
-import OrdersW from "./pages/web/orders/orders";
-import OrderDetail from "./pages/web/orders/order-detail";
 import { Toaster } from "./components/ui/sonner";
-import Design from "./pages/admin/design/design";
-import Marketing from "./pages/admin/marketing/marketing";
-import Profile from "./pages/web/profile/profile";
-import Warehouse from "./pages/admin/warehouse/warehouse";
-import StoreSetting from "./pages/admin/store-setting/store-setting";
+import LazyWrapper from "./components/common/LazyWrapper";
+import ProtectedRoute from "./components/protected-route";
+import { lazyImport } from "./lib/utils";
+import Promotions from "./pages/admin/promotions/promotions";
+
+// 🌐 Web pages
+const HomePage = lazyImport(() => import("./pages/web/home-page/home-page"));
+const ProductList = lazyImport(() => import("./pages/web/product-list/product-list"));
+const ProductDetail = lazyImport(() => import("./pages/web/product-list/product-detail"));
+const MyCart = lazyImport(() => import("./pages/web/my-cart/my-cart"));
+const Checkout = lazyImport(() => import("./pages/web/checkout/checkout"));
+const OrderSuccess = lazyImport(() => import("./pages/web/order-success/order-success"));
+const OrdersW = lazyImport(() => import("./pages/web/orders/orders"));
+const OrderDetail = lazyImport(() => import("./pages/web/orders/order-detail"));
+const Profile = lazyImport(() => import("./pages/web/profile/profile"));
+const Notification = lazyImport(() => import("./pages/web/notification/notification"));
+
+// 🔐 Auth
+const SignIn = lazyImport(() => import("./pages/auth/sign-in"));
+const UnauthorizedPage = lazyImport(() => import("./components/unauthorized"));
+
+// 🛠 Admin layout
+const LayoutAdmin = lazyImport(() => import("./pages/admin/layout-admin"));
+
+// 🧾 Admin pages
+const Statistic = lazyImport(() => import("./pages/admin/statistic/statistic"));
+const Categories = lazyImport(() => import("./pages/admin/categories/categories"));
+const Orders = lazyImport(() => import("./pages/admin/orders/orders"));
+const OrderDetailManage = lazyImport(() => import("./pages/admin/orders/order-detail"));
+const Products = lazyImport(() => import("./pages/admin/products/products"));
+const ProductAdd = lazyImport(() => import("./pages/admin/products/product-add"));
+const SuppliersPage = lazyImport(() => import("./pages/admin/suppliers/suppliers"));
+const ToppingsPage = lazyImport(() => import("./pages/admin/toppings/toppings"));
+const IngredientsPage = lazyImport(() => import("./pages/admin/ingredients/ingredients"));
+const OrderIngredientsPage = lazyImport(() => import("./pages/admin/order-ingredients/order-ingredients"));
+const Warehouse = lazyImport(() => import("./pages/admin/warehouse/warehouse"));
+const Design = lazyImport(() => import("./pages/admin/design/design"));
+const Marketing = lazyImport(() => import("./pages/admin/marketing/marketing"));
+const StoreSetting = lazyImport(() => import("./pages/admin/store-setting/store-setting"));
+const Users = lazyImport(() => import("./pages/admin/users/users"));
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-
+  
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userRole = localStorage.getItem("role");
     if (token) {
       setIsLoggedIn(true);
-      setIsAdmin(userRole === "admin");
+      setIsAdmin(userRole === "admin" || userRole === "shipper" || userRole === "employee" || userRole === "nhan-vien-kho");
     }
-
     setIsLoading(false);
   }, []);
 
-  if (isLoading) {
-    return <div></div>;
-  }
+  const getRedirectPathByRole = () => {
+    const role = localStorage.getItem("role");
+
+    switch (role) {
+      case "admin":
+        return "/admin";
+      case "employee":
+      case "shipper":
+        return "/admin/orders";
+      case "nhan-vien-kho":
+        return "/admin/order-ingredients";
+      default:
+        return "/";
+    }
+  };
+
+  if (isLoading) return <div></div>;
 
   return (
     <BrowserRouter>
@@ -60,66 +88,67 @@ function App() {
           setIsAdmin={setIsAdmin}
         />
         <div className="flex flex-1">
-          <main
-            className={isAdmin ? "ml-64 flex-1" : "flex-1"}
-            style={{ maxWidth: "1200px", margin: "0 auto" }}
-          >
+          <main className={isAdmin ? "ml-64 flex-1" : "flex-1"} style={{ maxWidth: "1200px", margin: "0 auto" }}>
             <Routes>
+              {/* Auth */}
               <Route
                 path="/sign-in"
                 element={
                   isLoggedIn ? (
-                    <Navigate to={isAdmin ? "/admin" : "/"} />
+                    <Navigate to={getRedirectPathByRole()} />
                   ) : (
-                    <SignIn setIsLoggedIn={setIsLoggedIn} setIsAdmin={setIsAdmin} />
+                    <LazyWrapper>
+                      <SignIn setIsLoggedIn={setIsLoggedIn} setIsAdmin={setIsAdmin} />
+                    </LazyWrapper>
                   )
                 }
               />
-              <Route
-                path="/sign-in"
+
+              {/* Unauthorized page */}
+              <Route 
+                path="/unauthorized" 
                 element={
-                  isLoggedIn ? (
-                    <Navigate to={isAdmin ? "/admin" : "/"} />
-                  ) : (
-                    <SignIn setIsLoggedIn={setIsLoggedIn} setIsAdmin={setIsAdmin} />
-                  )
-                }
+                  <LazyWrapper>
+                    <UnauthorizedPage />
+                  </LazyWrapper>
+                } 
               />
-              <Route path="/" element={<HomePage />} />
-              <Route path="/products" element={<ProductList />} />
-              <Route path="/products/:id" element={<ProductDetail />} />
-              <Route path="/cart" element={<MyCart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/order-success" element={<OrderSuccess />} />
-              <Route path="/orders" element={<OrdersW />} />
-              <Route path="/order-detail/:id" element={<OrderDetail />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route
-                  path="/admin"
-                  element={
-                    isLoggedIn && isAdmin ? (
-                      <LayoutAdmin />
-                    ) : (
-                      <Navigate to={isLoggedIn ? "/" : "/sign-in"} />
-                    )
-                  }
-                >
-                <Route index element={<Statistic />} />
-                <Route path="categories" element={<Categories />} />
-                <Route path="orders" element={<Orders />} />
-                <Route path="orders/:id" element={<OrderDetailManage />} />
-                <Route path="products" element={<Products />} />
-                <Route path="products/add" element={<ProductAdd />} />
-                <Route path="products/edit/:id" element={<ProductAdd />} />
-                <Route path="suppliers" element={<SuppliersPage />} />
-                <Route path="toppings" element={<ToppingsPage />} />
-                <Route path="ingredients" element={<IngredientsPage />} />
-                <Route path="warehouse" element={<Warehouse />} />
-                <Route path="order-ingredients" element={<OrderIngredientsPage />} /> 
-                <Route path="design" element={<Design />} />
-                <Route path="marketing" element={<Marketing />} />
-                <Route path="store-setting" element={<StoreSetting />} />
+
+              {/* Public routes */}
+              <Route path="/" element={<LazyWrapper><HomePage /></LazyWrapper>} />
+              <Route path="/products" element={<LazyWrapper><ProductList /></LazyWrapper>} />
+              <Route path="/products/:id" element={<LazyWrapper><ProductDetail /></LazyWrapper>} />
+              <Route path="/cart" element={<LazyWrapper><MyCart /></LazyWrapper>} />
+              <Route path="/checkout" element={<LazyWrapper><Checkout /></LazyWrapper>} />
+              <Route path="/order-success" element={<LazyWrapper><OrderSuccess /></LazyWrapper>} />
+              <Route path="/orders" element={<LazyWrapper><OrdersW /></LazyWrapper>} />
+              <Route path="/order-details/:id" element={<LazyWrapper><OrderDetail /></LazyWrapper>} />
+              <Route path="/profile" element={<LazyWrapper><Profile /></LazyWrapper>} />
+              <Route path="/notification" element={<LazyWrapper><Notification /></LazyWrapper>} />
+
+              {/* Protected Admin routes */}
+              <Route path="/admin/*" element={<ProtectedRoute requiredPath="/admin"><LazyWrapper><LayoutAdmin /></LazyWrapper></ProtectedRoute>}>
+                <Route index element={<LazyWrapper><Statistic /></LazyWrapper>} />
+                <Route path="categories" element={<ProtectedRoute requiredPath="/admin/categories"><LazyWrapper><Categories /></LazyWrapper></ProtectedRoute>} />
+                <Route path="orders" element={<ProtectedRoute requiredPath="/admin/orders"><LazyWrapper><Orders /></LazyWrapper></ProtectedRoute>} />
+                <Route path="orders/:id" element={<ProtectedRoute requiredPath="/admin/orders"><LazyWrapper><OrderDetailManage /></LazyWrapper></ProtectedRoute>} />
+                <Route path="products" element={<ProtectedRoute requiredPath="/admin/products"><LazyWrapper><Products /></LazyWrapper></ProtectedRoute>} />
+                <Route path="products/add" element={<ProtectedRoute requiredPath="/admin/products"><LazyWrapper><ProductAdd /></LazyWrapper></ProtectedRoute>} />
+                <Route path="products/edit/:id" element={<ProtectedRoute requiredPath="/admin/products"><LazyWrapper><ProductAdd /></LazyWrapper></ProtectedRoute>} />
+                <Route path="suppliers" element={<ProtectedRoute requiredPath="/admin/suppliers"><LazyWrapper><SuppliersPage /></LazyWrapper></ProtectedRoute>} />
+                <Route path="toppings" element={<ProtectedRoute requiredPath="/admin/toppings"><LazyWrapper><ToppingsPage /></LazyWrapper></ProtectedRoute>} />
+                <Route path="ingredients" element={<ProtectedRoute requiredPath="/admin/ingredients"><LazyWrapper><IngredientsPage /></LazyWrapper></ProtectedRoute>} />
+                <Route path="warehouse" element={<ProtectedRoute requiredPath="/admin/warehouse"><LazyWrapper><Warehouse /></LazyWrapper></ProtectedRoute>} />
+                <Route path="order-ingredients" element={<ProtectedRoute requiredPath="/admin/order-ingredients"><LazyWrapper><OrderIngredientsPage /></LazyWrapper></ProtectedRoute>} />
+                <Route path="design" element={<ProtectedRoute requiredPath="/admin/design"><LazyWrapper><Design /></LazyWrapper></ProtectedRoute>} />
+                <Route path="marketing" element={<ProtectedRoute requiredPath="/admin/marketing"><LazyWrapper><Marketing /></LazyWrapper></ProtectedRoute>} />
+                <Route path="store-setting" element={<ProtectedRoute requiredPath="/admin/store-setting"><LazyWrapper><StoreSetting /></LazyWrapper></ProtectedRoute>} />
+                <Route path="users" element={<ProtectedRoute requiredPath="/admin/users"><LazyWrapper><Users /></LazyWrapper></ProtectedRoute>} />
+                <Route path="promotion" element={<ProtectedRoute requiredPath="/admin/promotion"><LazyWrapper><Promotions /></LazyWrapper></ProtectedRoute>} />
               </Route>
+
+              {/* Catch all route - redirect to unauthorized */}
+              <Route path="*" element={<Navigate to="/unauthorized" replace />} />
             </Routes>
           </main>
         </div>

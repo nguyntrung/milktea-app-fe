@@ -18,7 +18,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Trash2, SquarePen, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, SquarePen, Plus, ChevronLeft, ChevronRight, CupSoda } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import CategoryDialog from "./components/categories-dialog";
@@ -26,6 +26,7 @@ import CategoryDialog from "./components/categories-dialog";
 interface Category {
   _id: string;
   ten: string;
+  hinhAnh: string;
   hoatDong?: boolean;
   ngayTao: string;
   ngayCapNhat: string;
@@ -76,7 +77,7 @@ export default function Categories() {
   };
 
   // Xử lý khi submit form
-  const handleSubmitCategory = async (data: Omit<Category, '_id' | 'ngayTao' | 'ngayCapNhat'>) => {
+  const handleSubmitCategory = async (data: FormData) => {
     try {
       if (dialogMode === "add") {
         // Thêm mới
@@ -109,9 +110,40 @@ export default function Categories() {
   const columns: ColumnDef<Category>[] = [
     {
       accessorKey: "ten",
-      header: "Tên danh mục",
-      cell: ({ row }) => <div>{row.getValue("ten")}</div>,
-    },
+      header: "Danh mục",
+      cell: ({ row }) => {
+        const hinhAnh = row.original.hinhAnh;
+        const tenDanhMuc = row.original.ten;
+        return (
+          <div className="flex items-center space-x-2">
+            {hinhAnh ? (
+              <img
+                src={hinhAnh}
+                alt="Danh mục"
+                className="h-12 w-12 object-cover rounded"
+              />
+            ) : (
+              <div className="h-12 w-12 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground">
+                <CupSoda />
+              </div>
+            )}
+            <span>{tenDanhMuc}</span>
+          </div>
+        );
+      },      
+    },    
+    // {
+    //   accessorKey: "hinhAnh",
+    //   header: "Hình ảnh",
+    //   cell: ({ row }) => {
+    //     const hinhAnh = row.getValue("hinhAnh") as string;
+    //     return hinhAnh ? (
+    //       <img src={hinhAnh} alt="Danh mục" className="h-12 w-12 object-cover rounded" />
+    //     ) : (
+    //       <span>Không có ảnh</span>
+    //     );
+    //   },
+    // },
     {
       accessorKey: "ngayTao",
       header: "Ngày tạo",
@@ -124,11 +156,13 @@ export default function Categories() {
     },
     {
       id: "actions",
-      header: "Thao tác",
+      header: () => (
+        <span className="float-right mr-3">Thao tác</span>
+      ),
       cell: ({ row }) => {
         const category = row.original;
         return (
-          <div className="flex items-center">
+          <div className="flex items-center float-right">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -163,13 +197,13 @@ export default function Categories() {
   });
 
   return (
-    <div className="bg-card h-fit w-full rounded-md p-3 shadow-md">
+    <div className="bg-card h-fit w-full rounded-md p-3 mb-3 shadow-md">
       <h3 className="text-2xl font-bold mb-3">Danh mục sản phẩm</h3>
       
       {loading ? (
         <div className="text-center py-4">Đang tải dữ liệu...</div>
       ) : error ? (
-        <div className="text-red-500 py-4">{error}</div>
+        <div className="text-destructive py-4">{error}</div>
       ) : (
         <div className="w-full">
           <div className="flex items-center py-4">

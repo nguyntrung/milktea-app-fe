@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { postData, getData } from "../../../lib/api";
+import { postData, getData, deleteData } from "../../../lib/api";
 import { PhuongThucThanhToan, TrangThaiDonHang, TrangThaiThanhToan } from "../../../types/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AddressAutocomplete from "./address-autocomplete";
@@ -42,6 +42,30 @@ interface CheckoutState {
   discount: number;
   total: number;
   paymentMethod: string;
+  appliedPromotion?: {
+    _id: string;
+    maKhuyenMai: string;
+    tenKhuyenMai: string;
+    moTa: string;
+    loaiKhuyenMai: "giamPhanTram" | "giamTienMat";
+    doiTuongKhuyenMai: "hoaDon" | "sanPham";
+    sanPhamApDung: string[];
+    giaTri: number;
+    thoiGianApDung: {
+      batDau: string;
+      ketThuc: string;
+    };
+    hoaDonApDung: {
+      giaTriToiThieu: number;
+      giaTriToiDa: number;
+    };
+    soLuong: {
+      tongSoLuong: number;
+      daSuDung: number;
+      gioiHanMoiNguoiDung: number;
+    };
+  } | null;
+  maKhuyenMai?: string | null;
 }
 
 export default function Checkout() {
@@ -279,51 +303,56 @@ export default function Checkout() {
 
   const handlePlaceOrder = async () => {
     if (!validateForm() || !checkoutState) return;
-
+  
     try {
       setLoading(true);
-
-      // Tạo đơn hàng theo cấu trúc API mới
+  
+      // Tạo đối tượng thông tin người nhận
+      const thongTinNguoiNhan = {
+        ten: customerInfo.ten,
+        soDienThoai: customerInfo.soDienThoai,
+        diaChi: customerInfo.diaChi,
+        email: customerInfo.email
+      };
+  
+      // Tạo đơn hàng với cấu trúc mới
       const orderData = {
         maKhachHang: localStorage.getItem("userId") || "guest",
-        maNhanVien: "681b5c598333b96fc916ba43",
-        ngayLap: new Date().toISOString(),
-        tongTienHang: checkoutState.subtotal,
-        tongTien: checkoutState.total,
-        khuyenMai: checkoutState.discount > 0 ? [
+        maNhanVien: "680f003b777f9f21543c88c9", // ID nhân viên mặc định
+        nguoiGiao: "681b5c598333b96fc916ba43", // ID người giao hàng mặc định
+        phiVanChuyen: checkoutState.shipping,
+        thongTinNguoiNhan: JSON.stringify(thongTinNguoiNhan), // Chuyển thành string JSON
+        khuyenMai: checkoutState.discount > 0 && checkoutState.maKhuyenMai ? [
           {
-            maKhuyenMai: "discount_code", // Mã khuyến mãi thực tế sẽ được lưu ở đây
-            giaTri: checkoutState.discount
+            maKhuyenMai: checkoutState.maKhuyenMai // Sử dụng mã khuyến mãi thực tế từ my-cart
           }
         ] : [],
-        nguoiGiao: "681b5c598333b96fc916ba43",
-        thongTinNguoiNhan: JSON.stringify({
-          ten: customerInfo.ten,
-          soDienThoai: customerInfo.soDienThoai,
-          diaChi: customerInfo.diaChi,
-          email: customerInfo.email
-        }),
         thanhToan: {
           phuongThucThanhToan: PhuongThucThanhToan.COD,
           trangThaiThanhToan: TrangThaiThanhToan.CHUA_THANH_TOAN
         },
-        ghiChu: customerInfo.ghiChu,
+        ghiChu: customerInfo.ghiChu || "Không có",
+        // Thêm các trường bổ sung nếu cần
+        ngayLap: new Date().toISOString(),
+        tongTienHang: checkoutState.subtotal,
+        tongTien: checkoutState.total,
         lichSuTrangThai: [{
           thoiGian: new Date().toISOString(),
           trangThaiDonHang: TrangThaiDonHang.CHO_XAC_NHAN
         }]
       };
-
-      // Gọi API tạo đơn hàng
+  
+      console.log("Order data being sent:", orderData);
+      console.log("Applied promotion code:", checkoutState.maKhuyenMai);
+  
       const orderResponse = await postData("/api/orders", orderData);
-
       if (!orderResponse.success) {
-        throw new Error("Không thể tạo đơn hàng");
+        throw new Error(orderResponse.message || "Không thể tạo đơn hàng");
       }
-
+  
       const orderId = orderResponse.data._id;
-
-      // Tạo chi tiết đơn hàng cho từng sản phẩm theo cấu trúc API mới
+  
+      // Tạo chi tiết đơn hàng
       const orderDetailPromises = checkoutState.items.map(item => {
         const orderDetailData = {
           maHoaDon: orderId,
@@ -339,47 +368,54 @@ export default function Checkout() {
             gia: topping.gia,
             soLuong: 1
           })),
-          ghiChu: item.ghiChu
+          ghiChu: item.ghiChu || ""
         };
-
         return postData("/api/order-details", orderDetailData);
       });
-
+  
       await Promise.all(orderDetailPromises);
-
-      // Xóa giỏ hàng sau khi đặt hàng thành công
+  
+      // Xóa giỏ hàng và gửi sự kiện
       try {
-        await fetch("/api/carts", {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("token")}`
-          }
-        });
+        const userId = localStorage.getItem("userId");
+        console.log("Attempting to clear cart for user:", userId);
+        const clearResult = await deleteData("/api/carts");
+        if (clearResult.success) {
+          console.log("Cart cleared successfully:", clearResult);
+          // Gửi sự kiện tùy chỉnh để thông báo giỏ hàng đã được xóa
+          const event = new CustomEvent("cartUpdated", {
+            detail: { cart: { items: [], total: 0 } }
+          });
+          window.dispatchEvent(event);
+        } else {
+          console.error("Failed to clear cart:", clearResult.message || clearResult);
+        }
       } catch (error) {
         console.error("Lỗi khi xóa giỏ hàng:", error);
-        // Tiếp tục xử lý ngay cả khi xóa giỏ hàng thất bại
+        // Vẫn gửi sự kiện để đảm bảo header cập nhật
+        const event = new CustomEvent("cartUpdated", {
+          detail: { cart: { items: [], total: 0 } }
+        });
+        window.dispatchEvent(event);
       }
-
-      // Lưu thông tin người dùng vào localStorage để sử dụng cho lần sau
+  
+      // Lưu thông tin người dùng
       localStorage.setItem("userInfo", JSON.stringify({
         ten: customerInfo.ten,
         soDienThoai: customerInfo.soDienThoai,
         diaChi: customerInfo.diaChi,
         email: customerInfo.email
       }));
-
-      // Thông báo thành công và chuyển đến trang xác nhận
+  
+      // Thông báo và chuyển hướng
       toast.success("Đặt hàng thành công!");
-      
-      // Sử dụng setTimeout để đảm bảo toast hiển thị trước khi chuyển hướng
       setTimeout(() => {
-        navigate("/order-success", { 
-          state: { orderId: orderId },
-          replace: true  // Thêm replace: true để thay thế lịch sử điều hướng
+        navigate("/order-success", {
+          state: { orderId },
+          replace: true
         });
       }, 1000);
-
+  
     } catch (error) {
       console.error("Lỗi khi đặt hàng:", error);
       toast.error("Đã xảy ra lỗi khi đặt hàng. Vui lòng thử lại sau.");
@@ -431,8 +467,6 @@ export default function Checkout() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Thanh toán</h1>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Thông tin giao hàng */}
         <div className="lg:col-span-2">
@@ -499,7 +533,7 @@ export default function Checkout() {
                   onChange={handleAddressChange}
                   placeholder="Nhập địa chỉ giao hàng"
                   hasError={!!errors.diaChi}
-                  readOnly={activeTab === "nguoiNhan" && userInfo !== null}
+                  // readOnly={activeTab === "nguoiNhan" && userInfo !== null}
                   calculateDistance={true}
                 />
                 {errors.diaChi && <p className="text-red-500 text-sm mt-1">{errors.diaChi}</p>}
@@ -549,7 +583,7 @@ export default function Checkout() {
 
         {/* Tóm tắt đơn hàng */}
         <div className="lg:col-span-1">
-          <div className="bg-card rounded-md shadow-md p-6 sticky top-20">
+          <div className="bg-card rounded-md shadow-md p-6 sticky top-39">
             <h2 className="text-xl font-semibold mb-4">Tóm tắt đơn hàng</h2>
             
             <div className="max-h-[300px] overflow-y-auto mb-4">

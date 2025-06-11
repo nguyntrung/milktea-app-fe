@@ -21,8 +21,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MultiSelect } from "@/components/ui/multi-select";
-import { getData } from "@/lib/api";
+import { Checkbox } from "@/components/ui/checkbox";
+import { X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -30,13 +30,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // Định nghĩa schema validation cho form
 const ingredientSchema = z.object({
   ten: z.string().min(1, "Tên nguyên liệu không được để trống"),
   donViTinh: z.string().min(1, "Đơn vị tính không được để trống"),
-  maNhaCungCap: z.array(z.string()).min(1, "Phải chọn ít nhất một nhà cung cấp"),
-  hoatDong: z.boolean().default(true),
+  nhaCungCap: z.array(z.object({
+    maNhacungCap: z.string(),
+    donGia: z.number().min(0, "Đơn giá phải lớn hơn hoặc bằng 0")
+  })).min(1, "Phải chọn ít nhất một nhà cung cấp"),
+  hoatDong: z.boolean(),
+  nguyenLieuHaoHut: z.boolean(),
 });
 
 type IngredientFormValues = z.infer<typeof ingredientSchema>;
@@ -45,8 +57,12 @@ interface Ingredient {
   _id?: string;
   ten: string;
   donViTinh: string;
-  maNhaCungCap: Array<string | { _id: string; ten: string }>;
+  nhaCungCap: Array<{
+    maNhacungCap: string;
+    donGia: number;
+  }>;
   hoatDong: boolean;
+  nguyenLieuHaoHut: boolean;
   ngayTao?: string;
   ngayCapNhat?: string;
 }
@@ -57,6 +73,7 @@ interface IngredientDialogProps {
   ingredient?: Ingredient;
   onSubmit: (data: IngredientFormValues) => Promise<void>;
   mode: "add" | "edit";
+  suppliers: Array<{ _id: string; ten: string }>;
 }
 
 // Danh sách đơn vị tính
@@ -64,7 +81,7 @@ const donViTinhOptions = [
   { value: "gram", label: "gram" },
   { value: "ml", label: "ml" },
   { value: "kg", label: "kg" },
-  { value: "lít", label: "lit" }
+  { value: "lít", label: "lít" }
 ];
 
 export default function IngredientDialog({
@@ -72,10 +89,14 @@ export default function IngredientDialog({
   onOpenChange,
   ingredient,
   onSubmit,
-  mode
+  mode,
+  suppliers
 }: IngredientDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [suppliers, setSuppliers] = useState<{ value: string; label: string }[]>([]);
+  const [selectedSuppliers, setSelectedSuppliers] = useState<Array<{
+    maNhacungCap: string;
+    donGia: number;
+  }>>([]);
 
   // Khởi tạo form với giá trị mặc định
   const form = useForm<IngredientFormValues>({
@@ -83,55 +104,81 @@ export default function IngredientDialog({
     defaultValues: {
       ten: "",
       donViTinh: "kg",
-      maNhaCungCap: [],
+      nhaCungCap: [],
       hoatDong: true,
+      nguyenLieuHaoHut: false,
     },
   });
-
-  // Lấy danh sách nhà cung cấp khi component được mount
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getData("/api/suppliers");
-        if (response.success && Array.isArray(response.data)) {
-          const formattedSuppliers = response.data.map((supplier: { _id: string; ten: string }) => ({
-            value: supplier._id,
-            label: supplier.ten
-          }));
-          setSuppliers(formattedSuppliers);
-        }
-      } catch (error) {
-        console.error("Lỗi khi tải danh sách nhà cung cấp:", error);
-        toast.error("Không thể tải danh sách nhà cung cấp");
-      }
-    };
-
-    fetchSuppliers();
-  }, []);
 
   // Cập nhật giá trị form khi ingredient thay đổi
   useEffect(() => {
     if (ingredient && mode === "edit") {
-      // Xử lý maNhaCungCap để chuyển đổi từ mảng đối tượng sang mảng ID nếu cần
-      const supplierIds = ingredient.maNhaCungCap.map(item => 
-        typeof item === 'object' && item !== null && '_id' in item ? item._id : item
-      );
-      
       form.reset({
         ten: ingredient.ten || "",
         donViTinh: ingredient.donViTinh || "kg",
-        maNhaCungCap: supplierIds,
+        nhaCungCap: ingredient.nhaCungCap || [],
         hoatDong: ingredient.hoatDong !== undefined ? ingredient.hoatDong : true,
+        nguyenLieuHaoHut: ingredient.nguyenLieuHaoHut !== undefined ? ingredient.nguyenLieuHaoHut : false,
       });
+      setSelectedSuppliers(ingredient.nhaCungCap || []);
     } else if (mode === "add") {
       form.reset({
         ten: "",
         donViTinh: "kg",
-        maNhaCungCap: [],
+        nhaCungCap: [],
         hoatDong: true,
+        nguyenLieuHaoHut: false,
       });
+      setSelectedSuppliers([]);
     }
   }, [ingredient, mode, form]);
+
+  // Thêm nhà cung cấp
+  const handleAddSupplier = (supplierId: string) => {
+    if (selectedSuppliers.find(s => s.maNhacungCap === supplierId)) {
+      toast.error("Nhà cung cấp đã được chọn");
+      return;
+    }
+
+    const newSupplier = {
+      maNhacungCap: supplierId,
+      donGia: 0
+    };
+
+    const updatedSuppliers = [...selectedSuppliers, newSupplier];
+    setSelectedSuppliers(updatedSuppliers);
+    form.setValue("nhaCungCap", updatedSuppliers);
+  };
+
+  // Xóa nhà cung cấp
+  const handleRemoveSupplier = (supplierId: string) => {
+    const updatedSuppliers = selectedSuppliers.filter(s => s.maNhacungCap !== supplierId);
+    setSelectedSuppliers(updatedSuppliers);
+    form.setValue("nhaCungCap", updatedSuppliers);
+  };
+
+  // Cập nhật đơn giá
+  const handlePriceChange = (supplierId: string, price: string) => {
+    const numPrice = parseFloat(price) || 0;
+    const updatedSuppliers = selectedSuppliers.map(s => 
+      s.maNhacungCap === supplierId 
+        ? { ...s, donGia: numPrice }
+        : s
+    );
+    setSelectedSuppliers(updatedSuppliers);
+    form.setValue("nhaCungCap", updatedSuppliers);
+  };
+
+  // Lấy tên nhà cung cấp
+  const getSupplierName = (supplierId: string) => {
+    const supplier = suppliers.find(s => s._id === supplierId);
+    return supplier ? supplier.ten : supplierId;
+  };
+
+  // Lấy danh sách nhà cung cấp chưa được chọn
+  const availableSuppliers = suppliers.filter(
+    supplier => !selectedSuppliers.find(s => s.maNhacungCap === supplier._id)
+  );
 
   // Xử lý khi submit form
   const handleSubmit = async (data: IngredientFormValues) => {
@@ -149,6 +196,7 @@ export default function IngredientDialog({
       // Đóng dialog và reset form
       onOpenChange(false);
       form.reset();
+      setSelectedSuppliers([]);
     } catch (error) {
       console.error("Lỗi khi xử lý nguyên liệu:", error);
       toast.error(
@@ -163,7 +211,7 @@ export default function IngredientDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {mode === "add" ? "Thêm nguyên liệu mới" : "Cập nhật nguyên liệu"}
@@ -216,49 +264,112 @@ export default function IngredientDialog({
               )}
             />
 
-            {/* Nhà cung cấp */}
-            <FormField
-              control={form.control}
-              name="maNhaCungCap"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nhà cung cấp</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      options={suppliers}
-                      selectedValues={field.value}
-                      onChange={field.onChange}
-                      placeholder="Chọn nhà cung cấp"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+            {/* Thêm nhà cung cấp */}
+            <div className="space-y-3">
+              <FormLabel>Nhà cung cấp</FormLabel>
+              
+              {/* Select để thêm nhà cung cấp */}
+              {availableSuppliers.length > 0 && (
+                <div className="flex gap-2">
+                  <Select onValueChange={(value) => handleAddSupplier(value)}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Chọn nhà cung cấp để thêm" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSuppliers.map((supplier) => (
+                        <SelectItem key={supplier._id} value={supplier._id}>
+                          {supplier.ten}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
-            />
 
-            {/* Trạng thái hoạt động */}
-            <FormField
-              control={form.control}
-              name="hoatDong"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      checked={field.value}
-                      onChange={field.onChange}
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Hoạt động</FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      Nguyên liệu sẽ hiển thị trong danh sách
-                    </p>
-                  </div>
-                </FormItem>
+              {/* Bảng hiển thị nhà cung cấp đã chọn */}
+              {selectedSuppliers.length > 0 && (
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nhà cung cấp</TableHead>
+                        <TableHead>Đơn giá (VNĐ)</TableHead>
+                        <TableHead className="w-[80px]">Thao tác</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedSuppliers.map((supplier) => (
+                        <TableRow key={supplier.maNhacungCap}>
+                          <TableCell>
+                            {getSupplierName(supplier.maNhacungCap)}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={supplier.donGia}
+                              onChange={(e) => handlePriceChange(supplier.maNhacungCap, e.target.value)}
+                              placeholder="Nhập đơn giá"
+                              min="0"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveSupplier(supplier.maNhacungCap)}
+                              className="h-8 w-8 text-destructive hover:text-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
-            />
+
+              {selectedSuppliers.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Chưa có nhà cung cấp nào được chọn
+                </p>
+              )}
+
+              <FormField
+                control={form.control}
+                name="nhaCungCap"
+                render={() => (
+                  <FormMessage />
+                )}
+              />
+            </div>
+
+            {/* Checkbox controls */}
+            <div className="space-y-4">
+              {/* Trạng thái hoạt động */}
+              <FormField
+                control={form.control}
+                name="hoatDong"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Hoạt động</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Nguyên liệu sẽ hiển thị trong danh sách
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+            </div>
 
             <DialogFooter className="mt-6">
               <DialogClose asChild>
