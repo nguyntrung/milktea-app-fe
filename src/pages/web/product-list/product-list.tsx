@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router";
 import { getData } from "../../../lib/api";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProductCard from "./components/product-card";
 
 interface Product {
@@ -15,6 +16,7 @@ interface Product {
     priceIncrease: number;
   }[];
   image?: string;
+  createdAt?: Date; // Thêm ngày tạo
 }
 
 interface ProductApiResponse {
@@ -36,11 +38,21 @@ interface ProductApiResponse {
   }[];
   tuychon: string[];
   hoatDong: boolean;
+  createdAt?: string; // Thêm ngày tạo từ API
 }
 
 interface ApiResponse {
   success: boolean;
   data: ProductApiResponse[];
+}
+
+// Enum cho các tùy chọn sắp xếp
+enum SortOption {
+  NAME_ASC = "name_asc",
+  NAME_DESC = "name_desc",
+  PRICE_ASC = "price_asc",
+  PRICE_DESC = "price_desc",
+  NEWEST = "newest"
 }
 
 interface ProductListProps {
@@ -66,6 +78,10 @@ interface ProductListProps {
   };
   // Show/hide header section
   showHeader?: boolean;
+  // Show/hide sort dropdown
+  showSort?: boolean;
+  // Default sort option
+  defaultSort?: SortOption;
   // Empty state customization
   emptyState?: {
     title: string;
@@ -106,16 +122,58 @@ export default function ProductList({
     xl: 4
   },
   showHeader = false,
+  showSort = true,
+  defaultSort = SortOption.NEWEST,
   emptyState = {
     title: "Chưa có sản phẩm nào",
     description: "Hãy quay lại sau để xem những sản phẩm mới nhất"
   }
 }: ProductListProps) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [originalProducts, setOriginalProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [sortOption, setSortOption] = useState<SortOption>(defaultSort);
   const [searchParams] = useSearchParams();
+
+  // Function để sắp xếp products
+  const sortProducts = (products: Product[], sortBy: SortOption): Product[] => {
+    const sortedProducts = [...products];
+    
+    switch (sortBy) {
+      case SortOption.NAME_ASC:
+        return sortedProducts.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+      
+      case SortOption.NAME_DESC:
+        return sortedProducts.sort((a, b) => b.name.localeCompare(a.name, 'vi'));
+      
+      case SortOption.PRICE_ASC:
+        return sortedProducts.sort((a, b) => a.price - b.price);
+      
+      case SortOption.PRICE_DESC:
+        return sortedProducts.sort((a, b) => b.price - a.price);
+      
+      case SortOption.NEWEST:
+        return sortedProducts.sort((a, b) => {
+          if (!a.createdAt && !b.createdAt) return 0;
+          if (!a.createdAt) return 1;
+          if (!b.createdAt) return -1;
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        });
+      
+      default:
+        return sortedProducts;
+    }
+  };
+
+  // Effect để sắp xếp lại khi sortOption thay đổi
+  useEffect(() => {
+    if (originalProducts.length > 0) {
+      const sorted = sortProducts(originalProducts, sortOption);
+      setProducts(sorted);
+    }
+  }, [sortOption, originalProducts]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -159,7 +217,8 @@ export default function ProductList({
             name: size.tenSize,
             priceIncrease: size.giaTang
           })),
-          image: item.hinhAnh && item.hinhAnh.length > 0 ? item.hinhAnh[0] : undefined
+          image: item.hinhAnh && item.hinhAnh.length > 0 ? item.hinhAnh[0] : undefined,
+          createdAt: item.createdAt ? new Date(item.createdAt) : undefined
         }));
         
         // Apply custom filter if provided
@@ -167,7 +226,10 @@ export default function ProductList({
           formattedProducts = filterFunction(formattedProducts);
         }
         
-        setProducts(formattedProducts);
+        // Lưu original products và set sorted products
+        setOriginalProducts(formattedProducts);
+        const sortedProducts = sortProducts(formattedProducts, sortOption);
+        setProducts(sortedProducts);
       } catch (error) {
         console.error("Lỗi khi tải sản phẩm:", error);
         setError("Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.");
@@ -202,6 +264,11 @@ export default function ProductList({
     console.log("Added to cart:", productId);
   };
 
+  // Handle sort change
+  const handleSortChange = (value: string) => {
+    setSortOption(value as SortOption);
+  };
+
   // Generate dynamic title and description
   const getDisplayTitle = () => {
     if (!title) return undefined;
@@ -227,6 +294,24 @@ export default function ProductList({
 
   // Generate grid classes based on props
   const gridClasses = `grid grid-cols-${gridCols.mobile} sm:grid-cols-${gridCols.tablet} lg:grid-cols-${gridCols.desktop} xl:grid-cols-${gridCols.xl} gap-3 sm:gap-4 lg:gap-4`;
+
+  // Get sort option label
+  const getSortLabel = (option: SortOption): string => {
+    switch (option) {
+      case SortOption.NAME_ASC:
+        return "Tên A → Z";
+      case SortOption.NAME_DESC:
+        return "Tên Z → A";
+      case SortOption.PRICE_ASC:
+        return "Giá tăng dần";
+      case SortOption.PRICE_DESC:
+        return "Giá giảm dần";
+      case SortOption.NEWEST:
+        return "Hàng mới";
+      default:
+        return "Sắp xếp";
+    }
+  };
 
   if (loading) {
     return (
@@ -274,6 +359,64 @@ export default function ProductList({
               {getDisplayDescription()}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Sort Section */}
+      {showSort && products.length > 0 && (
+        <div className="flex justify-between items-center mb-6">
+          <div className="text-sm text-muted-foreground">
+            Hiển thị {products.length} sản phẩm
+          </div>
+          <Select value={sortOption} onValueChange={handleSortChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sắp xếp theo">
+                {getSortLabel(sortOption)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SortOption.NEWEST}>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Hàng mới
+                </div>
+              </SelectItem>
+              <SelectItem value={SortOption.NAME_ASC}>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                  </svg>
+                  Tên A → Z
+                </div>
+              </SelectItem>
+              <SelectItem value={SortOption.NAME_DESC}>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+                  </svg>
+                  Tên Z → A
+                </div>
+              </SelectItem>
+              <SelectItem value={SortOption.PRICE_ASC}>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                  </svg>
+                  Giá tăng dần
+                </div>
+              </SelectItem>
+              <SelectItem value={SortOption.PRICE_DESC}>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                  </svg>
+                  Giá giảm dần
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
       

@@ -73,7 +73,7 @@ interface ApiResponse {
 // Product Detail Skeleton Component
 const ProductDetailSkeleton = () => (
   <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-[900px] m-auto">
       {/* Image Section Skeleton */}
       <div className="order-1">
         <div className="aspect-square bg-gray-200 rounded-lg animate-pulse mb-4"></div>
@@ -344,7 +344,7 @@ export default function ProductDetail() {
 
   return (
     <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-[900px] m-auto">
         {/* Phần hình ảnh */}
         <div className="order-1">
           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
@@ -434,12 +434,12 @@ export default function ProductDetail() {
                     onClick={() => setSelectedSize(size.id)}
                     className="rounded-md border cursor-pointer flex flex-col items-center hover:shadow-md transition-all duration-200"
                   >
-                    <span className={`p-2 sm:p-3 w-full font-medium text-xs sm:text-sm rounded-t-md transition-colors ${
+                    <span className={`p-2 w-full font-medium text-xs sm:text-sm rounded-t-md transition-colors ${
                       selectedSize === size.id ? 'bg-gray-100' : 'bg-background hover:bg-gray-50'
                     }`}>
                       {size.name}
                     </span>
-                    <span className={`p-2 sm:p-3 w-full text-xs font-medium rounded-b-md transition-colors ${
+                    <span className={`p-2 w-full text-xs font-medium rounded-b-md transition-colors ${
                       selectedSize === size.id ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'
                     }`}>
                       {size.priceIncrease > 0 ? `+${formatPrice(size.priceIncrease)}` : '+0 đ'}

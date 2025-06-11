@@ -8,13 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio";
-import { Separator } from "@/components/ui/separator";
 import Fallback from "@/components/ui/fallback";
-import { CalendarIcon, User, Phone, Mail, Gift, History, Edit } from "lucide-react";
+import { CalendarIcon, User, Gift, History, Edit, UserCircle, Award, Clock, Save } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface UserProfile {
   _id: string;
@@ -40,12 +39,33 @@ interface UserProfile {
   hoatDong: boolean;
 }
 
+const sidebarItems = [
+  {
+    id: "thongTin",
+    label: "Tài khoản của tôi",
+    icon: UserCircle,
+    description: "Quản lý thông tin cá nhân"
+  },
+  {
+    id: "diemTichLuy", 
+    label: "Điểm tích lũy",
+    icon: Award,
+    description: "Xem điểm tích lũy hiện tại"
+  },
+  {
+    id: "lichSuDiem",
+    label: "Lịch sử điểm",
+    icon: Clock,
+    description: "Lịch sử tích lũy và sử dụng"
+  }
+];
+
 export default function Profile() {
   const navigate = useNavigate();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("thongTin");
+  const [activeSection, setActiveSection] = useState("thongTin");
   
   // Form state
   const [formData, setFormData] = useState({
@@ -125,7 +145,6 @@ export default function Profile() {
     
     try {
       setIsSaving(true);
-      // Use the correct API endpoint for updating profile
       const response = await putData(`/api/auth/profile`, formData);
       
       if (response.success) {
@@ -174,82 +193,43 @@ export default function Profile() {
       </div>
     );
   }
-  
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-6">Hồ sơ cá nhân</h1>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="thongTin" className="cursor-pointer">Thông tin cá nhân</TabsTrigger>
-          <TabsTrigger value="diemTichLuy" className="cursor-pointer">Điểm tích lũy</TabsTrigger>
-          <TabsTrigger value="lichSuDiem" className="cursor-pointer">Lịch sử điểm</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="thongTin">
-          <Card className="py-4">
+
+  const renderContent = () => {
+    switch (activeSection) {
+      case "thongTin":
+        return (
+          <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Thông tin cá nhân</CardTitle>
-                  <CardDescription>Quản lý thông tin cá nhân của bạn</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  {isEditing ? (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setIsEditing(false)}
-                        className="cursor-pointer"
-                      >
-                        Hủy
-                      </Button>
-                      <Button 
-                        onClick={handleSaveProfile} 
-                        disabled={isSaving}
-                        className="cursor-pointer"
-                      >
-                        {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
-                      </Button>
-                    </>
-                  ) : (
-                    <Edit
-                      onClick={() => setIsEditing(true)}
-                      className="h-5 w-5 text-muted-foreground hover:text-primary cursor-pointer"
-                    />
-                  )}
-                </div>
+              <div className="mt-5">
+                <CardTitle>Hồ sơ của tôi</CardTitle>
+                <CardDescription>Quản lý thông tin hồ sở để bảo mật tài khoản</CardDescription>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="ten">Họ và tên</Label>
-                    {isEditing ? (
-                      <div className="flex items-center mt-1">
-                        <User className="h-4 w-4 text-muted-foreground mr-2" />
+              <div className="flex-1 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="ten">Tên hiển thị</Label>
+                      {isEditing ? (
                         <Input
                           id="ten"
                           name="ten"
                           value={formData.ten}
                           onChange={handleInputChange}
                           placeholder="Nhập họ và tên"
+                          className="mt-1"
                         />
-                      </div>
-                    ) : (
-                      <div className="flex items-center mt-1">
-                        <User className="h-4 w-4 text-muted-foreground mr-2" />
-                        <span>{user.ten || "Chưa cập nhật"}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    {isEditing ? (
-                      <div className="flex items-center mt-1">
-                        <Mail className="h-4 w-4 text-muted-foreground mr-2" />
+                      ) : (
+                        <div className="mt-1 p-2 bg-muted rounded">
+                          {user.ten || "Chưa cập nhật"}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      {isEditing ? (
                         <Input
                           id="email"
                           name="email"
@@ -257,114 +237,139 @@ export default function Profile() {
                           onChange={handleInputChange}
                           placeholder="Nhập email"
                           type="email"
+                          className="mt-1"
                         />
-                      </div>
-                    ) : (
-                      <div className="flex items-center mt-1">
-                        <Mail className="h-4 w-4 text-muted-foreground mr-2" />
-                        <span>{user.email || "Chưa cập nhật"}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="soDienThoai">Số điện thoại</Label>
-                    {isEditing ? (
-                      <div className="flex items-center mt-1">
-                        <Phone className="h-4 w-4 text-muted-foreground mr-2" />
+                      ) : (
+                        <div className="mt-1 p-2 bg-muted rounded">
+                          {user.email || "Chưa cập nhật"}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="soDienThoai">Số điện thoại</Label>
+                      {isEditing ? (
                         <Input
                           id="soDienThoai"
                           name="soDienThoai"
                           value={formData.soDienThoai}
                           onChange={handleInputChange}
-                          placeholder="Nhập số điện thoại"
+                          placeholder="Nhập số điện thoai"
+                          className="mt-1"
                         />
-                      </div>
-                    ) : (
-                      <div className="flex items-center mt-1">
-                        <Phone className="h-4 w-4 text-muted-foreground mr-2" />
-                        <span>{user.soDienThoai || "Chưa cập nhật"}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="ngaySinh">Ngày sinh</Label>
-                    {isEditing ? (
-                      <div className="flex items-center mt-1">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start text-left font-normal cursor-pointer"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {formData.ngaySinh ? (
-                                formatDate(formData.ngaySinh)
-                              ) : (
-                                <span>Chọn ngày sinh</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={formData.ngaySinh ? new Date(formData.ngaySinh) : undefined}
-                              onSelect={handleDateChange}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    ) : (
-                      <div className="flex items-center mt-1">
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground mr-2" />
-                        <span>{user.ngaySinh ? formatDate(user.ngaySinh) : "Chưa cập nhật"}</span>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="mt-1 p-2 bg-muted rounded">
+                          {user.soDienThoai || "Chưa cập nhật"}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
-                  <div>
-                    <Label>Giới tính</Label>
-                    {isEditing ? (
-                      <RadioGroup
-                        value={formData.gioiTinh}
-                        onValueChange={handleGenderChange}
-                        className="flex gap-4 mt-1"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="nam" id="nam" />
-                          <Label htmlFor="nam" className="cursor-pointer">Nam</Label>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="ngaySinh">Ngày sinh</Label>
+                      {isEditing ? (
+                        <div className="mt-1">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left font-normal cursor-pointer"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {formData.ngaySinh ? (
+                                  formatDate(formData.ngaySinh)
+                                ) : (
+                                  <span>Chọn ngày sinh</span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={formData.ngaySinh ? new Date(formData.ngaySinh) : undefined}
+                                onSelect={handleDateChange}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="nu" id="nu" />
-                          <Label htmlFor="nu" className="cursor-pointer">Nữ</Label>
+                      ) : (
+                        <div className="mt-1 p-2 bg-muted rounded">
+                          {user.ngaySinh ? formatDate(user.ngaySinh) : "Chưa cập nhật"}
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="khac" id="khac" />
-                          <Label htmlFor="khac" className="cursor-pointer">Khác</Label>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <Label>Giới tính</Label>
+                      {isEditing ? (
+                        <RadioGroup
+                          value={formData.gioiTinh}
+                          onValueChange={handleGenderChange}
+                          className="flex gap-4 mt-1"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="nam" id="nam" />
+                            <Label htmlFor="nam" className="cursor-pointer">Nam</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="nu" id="nu" />
+                            <Label htmlFor="nu" className="cursor-pointer">Nữ</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="khac" id="khac" />
+                            <Label htmlFor="khac" className="cursor-pointer">Khác</Label>
+                          </div>
+                        </RadioGroup>
+                      ) : (
+                        <div className="mt-1 p-2 bg-muted rounded capitalize">
+                          {user.gioiTinh || "Chưa cập nhật"}
                         </div>
-                      </RadioGroup>
-                    ) : (
-                      <div className="mt-1">
-                        <span className="capitalize">{user.gioiTinh || "Chưa cập nhật"}</span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-              
-              <Separator className="my-6" />
+            </CardContent>
+            
+            <CardContent className="flex justify-end gap-2 pt-5">
+              {isEditing ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsEditing(false)}
+                    className="cursor-pointer"
+                  >
+                    Hủy
+                  </Button>
+                  <Button 
+                    onClick={handleSaveProfile} 
+                    disabled={isSaving}
+                    className="cursor-pointer"
+                  >
+                    {isSaving ? "Đang lưu..." : <><Save /> Lưu thay đổi</>}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditing(true)}
+                  className="cursor-pointer"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Sửa
+                </Button>
+              )}
             </CardContent>
           </Card>
-        </TabsContent>
+        );
         
-        <TabsContent value="diemTichLuy">
-          <Card className="py-4">
+      case "diemTichLuy":
+        return (
+          <Card>
             <CardHeader>
-              <CardTitle>Điểm tích lũy</CardTitle>
+              <CardTitle className="mt-5">Điểm tích lũy</CardTitle>
               <CardDescription>Thông tin điểm tích lũy của bạn</CardDescription>
             </CardHeader>
             <CardContent>
@@ -383,12 +388,13 @@ export default function Profile() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        );
         
-        <TabsContent value="lichSuDiem">
-          <Card className="py-4">
+      case "lichSuDiem":
+        return (
+          <Card>
             <CardHeader>
-              <CardTitle>Lịch sử điểm</CardTitle>
+              <CardTitle className="mt-5">Lịch sử điểm</CardTitle>
               <CardDescription>Lịch sử tích lũy và sử dụng điểm</CardDescription>
             </CardHeader>
             <CardContent>
@@ -414,8 +420,57 @@ export default function Profile() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        );
+        
+      default:
+        return null;
+    }
+  };
+  
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Sidebar */}
+        <div className="lg:w-64 lg:flex-shrink-0">
+          <div className="bg-card rounded-lg border p-4">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">{user.ten || "Người dùng"}</p>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+              </div>
+            </div>
+            
+            <nav className="space-y-2">
+              {sidebarItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveSection(item.id)}
+                    className={cn(
+                      "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-left transition-colors",
+                      activeSection === item.id
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted"
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+        
+        {/* Main Content */}
+        <div className="flex-1">
+          {renderContent()}
+        </div>
+      </div>
     </div>
   );
 }
