@@ -2,6 +2,7 @@ import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carouse
 import { useEffect, useState } from "react";
 import { getData } from "../../../lib/api";
 import { Link } from "react-router";
+import Reviews from "./components/review";
 
 interface Slide {
   src: string;
@@ -344,6 +345,10 @@ export default function HomePage() {
             </div>
             <p className="text-gray-600 text-lg">Sản phẩm gợi ý sẽ được hiển thị tại đây</p>
           </div>
+        </section>
+
+        <section className="pb-8 sm:pb-12 lg:pb-16">
+          <Reviews />
         </section>
       </div>
     </div>

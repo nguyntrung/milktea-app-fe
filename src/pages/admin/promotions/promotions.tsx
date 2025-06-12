@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { getData, deleteData } from "@/lib/api";
 import { format } from "date-fns";
@@ -25,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, RefreshCw, Search, X, Trash, Edit } from "lucide-react";
+import { Plus, RefreshCw, Search, X, Trash2, Edit } from "lucide-react";
 import PromotionDialog from "./components/promotion-dialog";
 
 // Định nghĩa kiểu dữ liệu cho khuyến mãi
@@ -36,8 +36,10 @@ interface Promotion {
   moTa: string;
   giaTri: number;
   loaiKhuyenMai: "phantram" | "tienmat";
-  ngayBatDau: string;
-  ngayKetThuc: string;
+  thoiGianApDung: {
+    batDau: string;
+    ketThuc: string;
+  }
   dieuKienApDung: string;
   trangThai: boolean;
 }
@@ -55,94 +57,100 @@ export default function Promotions() {
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | undefined>(undefined);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
 
-  // Lấy danh sách khuyến mãi
-  const fetchPromotions = async () => {
-    try {
-      setLoading(true);
-      const response = await getData("/api/promotions");
-      if (response.success && Array.isArray(response.data)) {
-        setPromotions(response.data);
-      } else {
-        setError("Không thể tải danh sách khuyến mãi");
-      }
-    } catch (error) {
-      console.error("Lỗi khi tải khuyến mãi:", error);
-      setError("Đã xảy ra lỗi khi tải danh sách khuyến mãi");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Xóa khuyến mãi
-  const handleDeletePromotion = async (id: string) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa khuyến mãi này?")) {
-      try {
-        const response = await deleteData(`/api/promotions/${id}`);
-        if (response.success) {
-          toast.success("Xóa khuyến mãi thành công");
-          fetchPromotions();
-        } else {
-          toast.error(response.message || "Không thể xóa khuyến mãi");
-        }
-      } catch (error) {
-        console.error("Lỗi khi xóa khuyến mãi:", error);
-        toast.error("Đã xảy ra lỗi khi xóa khuyến mãi");
-      }
-    }
-  };
-
-  // Mở dialog thêm mới
-  const handleAddPromotion = () => {
-    setSelectedPromotion(undefined);
-    setDialogMode("add");
-    setDialogOpen(true);
-  };
-
-  // Mở dialog chỉnh sửa
-  const handleEditPromotion = (promotion: Promotion) => {
-    setSelectedPromotion(promotion);
-    setDialogMode("edit");
-    setDialogOpen(true);
-  };
-
-  // Định dạng ngày tháng
-  const formatDate = (dateString: string) => {
+  // Memoize các hàm format để tránh re-render không cần thiết
+  const formatDate = useCallback((dateString: string) => {
     try {
       const date = new Date(dateString);
       return format(date, 'dd/MM/yyyy', { locale: vi });
     } catch {
       return dateString;
     }
-  };
+  }, []);
 
-  // Định dạng giá trị khuyến mãi
-  const formatPromotionValue = (value: number, type: string) => {
+  const formatPromotionValue = useCallback((value: number, type: string) => {
     if (type === "phantram") {
       return `${value}%`;
     } else {
       return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
     }
-  };
-
-  // Lọc khuyến mãi theo từ khóa tìm kiếm
-  const filteredPromotions = promotions.filter(promotion => {
-    if (!searchTerm) return true;
-    
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      promotion.maKhuyenMai.toLowerCase().includes(searchLower) ||
-      promotion.tenKhuyenMai.toLowerCase().includes(searchLower) ||
-      promotion.moTa.toLowerCase().includes(searchLower)
-    );
-  });
-
-  // Tải dữ liệu khi component được mount
-  useEffect(() => {
-    fetchPromotions();
   }, []);
 
-  // Định nghĩa cột cho bảng
-  const columns: ColumnDef<Promotion>[] = [
+  // Lấy danh sách khuyến mãi với error handling tốt hơn
+  const fetchPromotions = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null); // Reset error state
+      
+      const response = await getData("/api/promotions");
+      
+      if (response?.success && Array.isArray(response.data)) {
+        setPromotions(response.data);
+      } else {
+        setError("Không thể tải danh sách khuyến mãi");
+        setPromotions([]); // Set empty array để tránh lỗi
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải khuyến mãi:", error);
+      setError("Đã xảy ra lỗi khi tải danh sách khuyến mãi");
+      setPromotions([]); // Set empty array để tránh lỗi
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Xóa khuyến mãi với loading state
+  const handleDeletePromotion = useCallback(async (id: string) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa khuyến mãi này?")) {
+      try {
+        setLoading(true); // Thêm loading state
+        const response = await deleteData(`/api/promotions/${id}`);
+        if (response?.success) {
+          toast.success("Xóa khuyến mãi thành công");
+          await fetchPromotions(); // Refresh data
+        } else {
+          toast.error(response?.message || "Không thể xóa khuyến mãi");
+        }
+      } catch (error) {
+        console.error("Lỗi khi xóa khuyến mãi:", error);
+        toast.error("Đã xảy ra lỗi khi xóa khuyến mãi");
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [fetchPromotions]);
+
+  // Mở dialog thêm mới
+  const handleAddPromotion = useCallback(() => {
+    setSelectedPromotion(undefined);
+    setDialogMode("add");
+    setDialogOpen(true);
+  }, []);
+
+  // Mở dialog chỉnh sửa
+  const handleEditPromotion = useCallback((promotion: Promotion) => {
+    setSelectedPromotion(promotion);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  }, []);
+
+  // Memoize filtered promotions để tránh tính toán lại không cần thiết
+  const filteredPromotions = useMemo(() => {
+    if (!Array.isArray(promotions)) return [];
+    
+    if (!searchTerm) return promotions;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return promotions.filter(promotion => {
+      return (
+        promotion.maKhuyenMai?.toLowerCase().includes(searchLower) ||
+        promotion.tenKhuyenMai?.toLowerCase().includes(searchLower) ||
+        promotion.moTa?.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [promotions, searchTerm]);
+
+  // Memoize columns để tránh re-render table
+  const columns: ColumnDef<Promotion>[] = useMemo(() => [
     {
       accessorKey: "maKhuyenMai",
       header: "Mã khuyến mãi",
@@ -151,10 +159,14 @@ export default function Promotions() {
       accessorKey: "tenKhuyenMai",
       header: "Tên khuyến mãi",
     },
-    {
-      accessorKey: "moTa",
-      header: "Mô tả",
-    },
+    // {
+    //   accessorKey: "moTa",
+    //   header: "Mô tả",
+    //   cell: ({ row }) => {
+    //     const description = row.getValue("moTa") as string;
+    //     return description?.length > 50 ? `${description.substring(0, 50)}...` : description;
+    //   },
+    // },
     {
       accessorKey: "giaTri",
       header: "Giá trị",
@@ -164,21 +176,21 @@ export default function Promotions() {
       },
     },
     {
-      accessorKey: "ngayBatDau",
-      header: "Ngày bắt đầu",
+      accessorKey: "thoiGianApDung",
+      header: "Thời gian áp dụng",
       cell: ({ row }) => {
-        const date = row.getValue("ngayBatDau") as string;
-        return formatDate(date);
+        const promotion = row.original;
+        return `${formatDate(promotion.thoiGianApDung.batDau)} - ${formatDate(promotion.thoiGianApDung.ketThuc)}`;
       },
     },
-    {
-      accessorKey: "ngayKetThuc",
-      header: "Ngày kết thúc",
-      cell: ({ row }) => {
-        const date = row.getValue("ngayKetThuc") as string;
-        return formatDate(date);
-      },
-    },
+    // {
+    //   accessorKey: "ngayKetThuc",
+    //   header: "Ngày kết thúc",
+    //   cell: ({ row }) => {
+    //     const date = row.getValue("ngayKetThuc") as string;
+    //     return formatDate(date);
+    //   },
+    // },
     {
       accessorKey: "trangThai",
       header: "Trạng thái",
@@ -201,6 +213,7 @@ export default function Promotions() {
               variant="ghost"
               size="icon"
               onClick={() => handleEditPromotion(promotion)}
+              disabled={loading}
             >
               <Edit className="h-4 w-4" />
             </Button>
@@ -208,15 +221,22 @@ export default function Promotions() {
               variant="ghost"
               size="icon"
               onClick={() => handleDeletePromotion(promotion._id)}
+              disabled={loading}
             >
-              <Trash className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         );
       },
     },
-  ];
+  ], [formatPromotionValue, formatDate, handleEditPromotion, handleDeletePromotion, loading]);
 
+  // Tải dữ liệu khi component được mount
+  useEffect(() => {
+    fetchPromotions();
+  }, [fetchPromotions]);
+
+  // Memoize table configuration
   const table = useReactTable({
     data: filteredPromotions,
     columns,
@@ -230,17 +250,28 @@ export default function Promotions() {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 10, // Giới hạn số item trên mỗi trang
+      },
+    },
   });
+
+  // Callback cho dialog submit
+  const handleDialogSubmit = useCallback(async () => {
+    await fetchPromotions();
+  }, [fetchPromotions]);
 
   return (
     <div className="bg-card h-fit w-full rounded-md p-3 mb-3 shadow-md">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý khuyến mãi</h1>
         <div className="flex gap-2">
-          <Button onClick={fetchPromotions} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" /> Làm mới
+          <Button onClick={fetchPromotions} variant="outline" disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> 
+            Làm mới
           </Button>
-          <Button onClick={handleAddPromotion}>
+          <Button onClick={handleAddPromotion} disabled={loading}>
             <Plus className="h-4 w-4 mr-2" /> Thêm khuyến mãi
           </Button>
         </div>
@@ -254,6 +285,7 @@ export default function Promotions() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 pr-10"
+          disabled={loading}
         />
         {searchTerm && (
           <Button
@@ -261,6 +293,7 @@ export default function Promotions() {
             size="sm"
             className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
             onClick={() => setSearchTerm("")}
+            disabled={loading}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -303,7 +336,16 @@ export default function Promotions() {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  {loading ? "Đang tải..." : error || "Không có dữ liệu"}
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      Đang tải...
+                    </div>
+                  ) : error ? (
+                    <div className="text-red-500">{error}</div>
+                  ) : (
+                    "Không có dữ liệu"
+                  )}
                 </TableCell>
               </TableRow>
             )}
@@ -312,31 +354,36 @@ export default function Promotions() {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Trước
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Sau
-        </Button>
+      <div className="flex items-center justify-between space-x-2 py-4">
+        <div className="text-sm text-muted-foreground">
+          Hiển thị {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} - {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, filteredPromotions.length)} trong tổng số {filteredPromotions.length} khuyến mãi
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage() || loading}
+          >
+            Trước
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage() || loading}
+          >
+            Sau
+          </Button>
+        </div>
       </div>
 
       {/* Dialog */}
       <PromotionDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        promotion={selectedPromotion}
-        onSubmit={fetchPromotions}
+        promotion={selectedPromotion as Promotion}
+        onSubmit={handleDialogSubmit}
         mode={dialogMode}
       />
     </div>

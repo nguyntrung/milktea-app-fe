@@ -40,7 +40,7 @@ const IngredientsPage = lazyImport(() => import("./pages/admin/ingredients/ingre
 const OrderIngredientsPage = lazyImport(() => import("./pages/admin/order-ingredients/order-ingredients"));
 const Warehouse = lazyImport(() => import("./pages/admin/warehouse/warehouse"));
 const Design = lazyImport(() => import("./pages/admin/design/design"));
-const Marketing = lazyImport(() => import("./pages/admin/marketing/marketing"));
+// const Marketing = lazyImport(() => import("./pages/admin/marketing/marketing"));
 const StoreSetting = lazyImport(() => import("./pages/admin/store-setting/store-setting"));
 const Users = lazyImport(() => import("./pages/admin/users/users"));
 
@@ -141,10 +141,10 @@ function App() {
                 <Route path="warehouse" element={<ProtectedRoute requiredPath="/admin/warehouse"><LazyWrapper><Warehouse /></LazyWrapper></ProtectedRoute>} />
                 <Route path="order-ingredients" element={<ProtectedRoute requiredPath="/admin/order-ingredients"><LazyWrapper><OrderIngredientsPage /></LazyWrapper></ProtectedRoute>} />
                 <Route path="design" element={<ProtectedRoute requiredPath="/admin/design"><LazyWrapper><Design /></LazyWrapper></ProtectedRoute>} />
-                <Route path="marketing" element={<ProtectedRoute requiredPath="/admin/marketing"><LazyWrapper><Marketing /></LazyWrapper></ProtectedRoute>} />
+                {/* <Route path="marketing" element={<ProtectedRoute requiredPath="/admin/marketing"><LazyWrapper><Marketing /></LazyWrapper></ProtectedRoute>} /> */}
                 <Route path="store-setting" element={<ProtectedRoute requiredPath="/admin/store-setting"><LazyWrapper><StoreSetting /></LazyWrapper></ProtectedRoute>} />
                 <Route path="users" element={<ProtectedRoute requiredPath="/admin/users"><LazyWrapper><Users /></LazyWrapper></ProtectedRoute>} />
-                <Route path="promotion" element={<ProtectedRoute requiredPath="/admin/promotion"><LazyWrapper><Promotions /></LazyWrapper></ProtectedRoute>} />
+                <Route path="marketing" element={<ProtectedRoute requiredPath="/admin/marketing"><LazyWrapper><Promotions /></LazyWrapper></ProtectedRoute>} />
               </Route>
 
               {/* Catch all route - redirect to unauthorized */}

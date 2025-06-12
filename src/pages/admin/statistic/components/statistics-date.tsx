@@ -457,12 +457,12 @@ export default function IngredientStatistics() {
                               {activeTab === 'daily' && <TableHead>Ngày</TableHead>}
                               {activeTab === 'yearly' && <TableHead>Năm</TableHead>}
                               <TableHead>Nguyên liệu</TableHead>
-                              <TableHead className="text-right">Tổng nguyên liệu</TableHead>
-                              <TableHead className="text-right">Tồn đầu</TableHead>
+                              <TableHead className="text-right">Tổng</TableHead>
+                              {/* <TableHead className="text-right">Tồn đầu</TableHead> */}
                               <TableHead className="text-right">Nhập</TableHead>
                               <TableHead className="text-right">Số lượng bán</TableHead>
                               <TableHead className="text-right">Hao hụt</TableHead>
-                              <TableHead className="text-right">Tồn cuối</TableHead>
+                              {/* <TableHead className="text-right">Tồn cuối</TableHead> */}
                               {activeTab === 'revenue' && <TableHead className="text-right">Doanh thu</TableHead>}
                             </TableRow>
                           </TableHeader>
@@ -480,10 +480,10 @@ export default function IngredientStatistics() {
                                 <TableCell className="font-medium">
                                   {getIngredientName(item.maNguyenLieu)}
                                 </TableCell>
-                                <TableCell className="text-left">
+                                <TableCell className="text-right">
                                   {formatQuantity('soLuongTon' in item ? item.soLuongTon : 0, item.donViTinh)}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                {/* <TableCell className="text-right">
                                   {formatQuantity(
                                     'soLuongBanDau' in item
                                       ? item.soLuongBanDau
@@ -492,7 +492,8 @@ export default function IngredientStatistics() {
                                       : 0,
                                     item.donViTinh
                                   )}
-                                </TableCell>
+                                </TableCell> */}
+
                                 <TableCell className="text-right text-green-600">
                                   {formatQuantity('tongSoLuongNhap' in item ? item.tongSoLuongNhap : 0, item.donViTinh)}
                                 </TableCell>
@@ -502,9 +503,10 @@ export default function IngredientStatistics() {
                                 <TableCell className="text-right text-amber-600">
                                   {formatQuantity('tongSoLuongHaoHut' in item ? item.tongSoLuongHaoHut : 0, item.donViTinh)}
                                 </TableCell>
-                                <TableCell className={`text-right ${'soLuongTon' in item && item.soLuongTon < 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                                {/* <TableCell className={`text-right ${'soLuongTon' in item && item.soLuongTon < 0 ? 'text-red-600' : 'text-blue-600'}`}>
                                   {formatQuantity('soLuongTon' in item ? item.soLuongTon : 0, item.donViTinh)}
-                                </TableCell>
+                                </TableCell> */}
+
                                 {activeTab === 'revenue' && (
                                   <TableCell className="text-right text-purple-600">
                                     {'tongDoanhThu' in item ? item.tongDoanhThu.toLocaleString() : 0} VNĐ
