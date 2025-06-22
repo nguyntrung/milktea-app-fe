@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getData, postData, putData } from "@/lib/api";
+import { getData, postData, putData, deleteData } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Table,
@@ -22,6 +22,14 @@ import { SquarePen, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import SupplierDialog from "./components/supplier-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Supplier {
   _id: string;
@@ -37,13 +45,12 @@ export default function SuppliersPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  
-  // State cho dialog
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>(undefined);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
 
-  // Lấy danh sách nhà cung cấp
   const fetchSuppliers = async () => {
     try {
       setLoading(true);
@@ -62,33 +69,47 @@ export default function SuppliersPage() {
     fetchSuppliers();
   }, []);
 
-  // Xử lý khi thêm nhà cung cấp mới
   const handleAddSupplier = () => {
     setSelectedSupplier(undefined);
     setDialogMode("add");
     setDialogOpen(true);
   };
 
-  // Xử lý khi sửa nhà cung cấp
   const handleEditSupplier = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
     setDialogMode("edit");
     setDialogOpen(true);
   };
 
-  // Xử lý khi submit form
+  const handleDeleteSupplier = (supplier: Supplier) => {
+    setSupplierToDelete(supplier);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!supplierToDelete) return;
+
+    try {
+      await deleteData(`/api/suppliers/${supplierToDelete._id}`);
+      toast.success("Xóa nhà cung cấp thành công");
+      setDeleteDialogOpen(false);
+      setSupplierToDelete(null);
+      fetchSuppliers();
+    } catch (error) {
+      console.error("Lỗi khi xóa nhà cung cấp:", error);
+      toast.error("Có lỗi xảy ra khi xóa nhà cung cấp");
+    }
+  };
+
   const handleSubmitSupplier = async (data: Omit<Supplier, '_id' | 'ngayTao' | 'ngayCapNhat'>) => {
     try {
       if (dialogMode === "add") {
-        // Thêm mới
         await postData("/api/suppliers", data);
         toast.success("Thêm nhà cung cấp thành công");
       } else {
-        // Cập nhật
         await putData(`/api/suppliers/${selectedSupplier?._id}`, data);
         toast.success("Cập nhật nhà cung cấp thành công");
       }
-      // Tải lại danh sách sau khi thêm/sửa
       fetchSuppliers();
     } catch (error) {
       console.error("Lỗi khi xử lý nhà cung cấp:", error);
@@ -98,7 +119,6 @@ export default function SuppliersPage() {
     }
   };
 
-  // Định nghĩa cột cho bảng
   const columns: ColumnDef<Supplier>[] = [
     {
       accessorKey: "ten",
@@ -130,11 +150,11 @@ export default function SuppliersPage() {
             >
               <SquarePen className="h-4 w-4" />
             </Button>
-
             <Button 
               variant="ghost" 
               size="icon" 
               className="cursor-pointer hover:text-destructive"
+              onClick={() => handleDeleteSupplier(supplier)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -258,7 +278,6 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      {/* Dialog thêm/sửa nhà cung cấp */}
       <SupplierDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -266,6 +285,34 @@ export default function SuppliersPage() {
         onSubmit={handleSubmitSupplier}
         mode={dialogMode}
       />
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa nhà cung cấp</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa nhà cung cấp "{supplierToDelete?.ten}"? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setSupplierToDelete(null);
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

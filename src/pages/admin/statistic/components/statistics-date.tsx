@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Package, Calendar as CalendarIcon, Coffee, Search, BarChart3 } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, Search, BarChart3 } from 'lucide-react';
 import { getData } from '@/lib/api';
 import { format } from 'date-fns';
 
@@ -44,13 +44,13 @@ interface RevenueStatistic {
   giaTriTrungBinh: number;
 }
 
-interface StatCardProps {
-  title: string;
-  value: number | string;
-  unit: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color?: string;
-}
+// interface StatCardProps {
+//   title: string;
+//   value: number | string;
+//   unit: string;
+//   icon: React.ComponentType<{ className?: string }>;
+//   color?: string;
+// }
 
 export default function IngredientStatistics() {
   const [activeTab, setActiveTab] = useState<'daily' | 'month' | 'yearly' | 'revenue'>('month');
@@ -207,15 +207,15 @@ export default function IngredientStatistics() {
   }));
 
   // Calculate total statistics
-  const totalStats = {
-    totalSold: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + (item.tongSoLuongBan || 0), 0),
-    totalImported: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + ('tongSoLuongNhap' in item ? item.tongSoLuongNhap : 0), 0),
-    totalRevenue: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + ('tongDoanhThu' in item ? item.tongDoanhThu : 0), 0),
-    totalRemaining: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => {
-      const remaining = 'soLuongTon' in item ? item.soLuongTon : 0;
-      return sum + Math.max(0, remaining);
-    }, 0),
-  };
+  // const totalStats = {
+  //   totalSold: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + (item.tongSoLuongBan || 0), 0),
+  //   totalImported: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + ('tongSoLuongNhap' in item ? item.tongSoLuongNhap : 0), 0),
+  //   totalRevenue: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => sum + ('tongDoanhThu' in item ? item.tongDoanhThu : 0), 0),
+  //   totalRemaining: filteredData.reduce((sum: number, item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => {
+  //     const remaining = 'soLuongTon' in item ? item.soLuongTon : 0;
+  //     return sum + Math.max(0, remaining);
+  //   }, 0),
+  // };
 
   const tabConfig = {
     daily: { title: 'Thống kê theo ngày', icon: CalendarIcon },
@@ -224,24 +224,24 @@ export default function IngredientStatistics() {
   };
 
   // Stat Card component
-  const StatCard = ({ title, value, unit, icon: Icon, color = "blue" }: StatCardProps) => (
-    <Card className={`border-l-4 border-${color}-500 hover:shadow-xl transition-shadow`}>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardDescription>{title}</CardDescription>
-            <CardTitle className="text-2xl mt-1">
-              {typeof value === 'number' ? value.toLocaleString() : value}
-              <span className="text-sm text-muted-foreground ml-1">{unit}</span>
-            </CardTitle>
-          </div>
-          <div className={`p-3 bg-${color}-100 rounded-lg`}>
-            <Icon className={`w-6 h-6 text-${color}-600`} />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  // const StatCard = ({ title, value, unit, icon: Icon, color = "blue" }: StatCardProps) => (
+  //   <Card className={`border-l-4 border-${color}-500 hover:shadow-xl transition-shadow`}>
+  //     <CardContent className="p-6">
+  //       <div className="flex items-center justify-between">
+  //         <div>
+  //           <CardDescription>{title}</CardDescription>
+  //           <CardTitle className="text-2xl mt-1">
+  //             {typeof value === 'number' ? value.toLocaleString() : value}
+  //             <span className="text-sm text-muted-foreground ml-1">{unit}</span>
+  //           </CardTitle>
+  //         </div>
+  //         <div className={`p-3 bg-${color}-100 rounded-lg`}>
+  //           <Icon className={`w-6 h-6 text-${color}-600`} />
+  //         </div>
+  //       </div>
+  //     </CardContent>
+  //   </Card>
+  // );
 
   // Get unique ingredients for filter dropdown
   const uniqueIngredients = [...new Set(currentData.map((item: IngredientStatistic | DailyIngredientStatistic | YearlyIngredientStatistic | RevenueStatistic) => item.maNguyenLieu))];
@@ -342,30 +342,6 @@ export default function IngredientStatistics() {
                 <div className="text-center py-8 text-destructive">{error}</div>
               ) : (
                 <>
-                  {/* Stats Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    <StatCard
-                      title="Tổng đã bán"
-                      value={totalStats.totalSold.toFixed(2)}
-                      unit="đơn vị"
-                      icon={Package}
-                      color="green"
-                    />
-                    <StatCard
-                      title="Tổng nhập kho"
-                      value={totalStats.totalImported.toFixed(2)}
-                      unit="đơn vị"
-                      icon={TrendingUp}
-                      color="blue"
-                    />
-                    <StatCard
-                      title="Tổng tồn kho"
-                      value={totalStats.totalRemaining.toFixed(2)}
-                      unit="đơn vị"
-                      icon={Coffee}
-                      color="orange"
-                    />
-                  </div>
 
                   {filteredData.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">

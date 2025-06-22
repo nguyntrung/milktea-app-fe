@@ -8,6 +8,20 @@ import { getData, postData, postFormData, putData } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Check, ChevronsUpDown } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import JoditEditor from 'jodit-react';
 import { 
   Form, 
@@ -35,6 +49,7 @@ import {
 import { X, Plus, Upload } from "lucide-react";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 // Định nghĩa các interface
 interface Category {
@@ -132,6 +147,7 @@ export default function ProductAdd() {
   ]);
   const [selectedIngredientId, setSelectedIngredientId] = useState<string>("");
   const [giaCoBan, setGiaCoBan] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState("");
   
   // State mới cho nguyên liệu chung
   const [productIngredients, setProductIngredients] = useState<{
@@ -703,25 +719,56 @@ export default function ProductAdd() {
                 <div className="flex justify-between items-center">
                   <FormLabel>Quản lý nguyên liệu</FormLabel>
                   <div className="flex gap-2">
-                    <Select
-                      value={selectedIngredientId}
-                      onValueChange={setSelectedIngredientId}
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Chọn nguyên liệu" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ingredients.map((ingredient) => (
-                          <SelectItem
-                            key={ingredient.value}
-                            value={ingredient.value}
-                            disabled={productIngredients.some(i => i.maNguyenLieu === ingredient.value)}
-                          >
-                            {ingredient.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-[200px] justify-between"
+                        >
+                          {selectedIngredientId
+                            ? ingredients.find(i => i.value === selectedIngredientId)?.label
+                            : "Chọn nguyên liệu"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[200px] p-0">
+                        <Command shouldFilter={false}>
+                          <CommandInput 
+                            placeholder="Tìm nguyên liệu..." 
+                            value={searchTerm}
+                            onValueChange={setSearchTerm}
+                          />
+                          <CommandList>
+                            <CommandEmpty>Không tìm thấy nguyên liệu</CommandEmpty>
+                            <CommandGroup>
+                              {ingredients
+                                .filter(ingredient =>
+                                  ingredient.label.toLowerCase().includes(searchTerm.toLowerCase())
+                                )
+                                .map((ingredient) => (
+                                  <CommandItem
+                                    key={ingredient.value}
+                                    value={ingredient.value}
+                                    onSelect={() => {
+                                      setSelectedIngredientId(ingredient.value);
+                                    }}
+                                    disabled={productIngredients.some(i => i.maNguyenLieu === ingredient.value)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedIngredientId === ingredient.value ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {ingredient.label}
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     
                     <Button
                       type="button"

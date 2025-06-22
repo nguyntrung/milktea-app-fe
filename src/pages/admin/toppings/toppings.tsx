@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getData, postData, putData } from "@/lib/api";
+import { getData, postData, putData, deleteData } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Table,
@@ -22,6 +22,14 @@ import { SquarePen, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ToppingDialog from "./components/topping-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Topping {
   _id: string;
@@ -39,13 +47,12 @@ export default function ToppingsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  
-  // State cho dialog
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTopping, setSelectedTopping] = useState<Topping | undefined>(undefined);
+  const [toppingToDelete, setToppingToDelete] = useState<Topping | null>(null);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
 
-  // Lấy danh sách topping
   const fetchToppings = async () => {
     try {
       setLoading(true);
@@ -64,33 +71,47 @@ export default function ToppingsPage() {
     fetchToppings();
   }, []);
 
-  // Xử lý khi thêm topping mới
   const handleAddTopping = () => {
     setSelectedTopping(undefined);
     setDialogMode("add");
     setDialogOpen(true);
   };
 
-  // Xử lý khi sửa topping
   const handleEditTopping = (topping: Topping) => {
     setSelectedTopping(topping);
     setDialogMode("edit");
     setDialogOpen(true);
   };
 
-  // Xử lý khi submit form
+  const handleDeleteTopping = (topping: Topping) => {
+    setToppingToDelete(topping);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!toppingToDelete) return;
+    
+    try {
+      await deleteData(`/api/toppings/${toppingToDelete._id}`);
+      toast.success("Xóa topping thành công");
+      setDeleteDialogOpen(false);
+      setToppingToDelete(null);
+      fetchToppings();
+    } catch (error) {
+      console.error("Lỗi khi xóa topping:", error);
+      toast.error("Có lỗi xảy ra khi xóa topping");
+    }
+  };
+
   const handleSubmitTopping = async (data: Omit<Topping, '_id' | 'ngayTao' | 'ngayCapNhat'>) => {
     try {
       if (dialogMode === "add") {
-        // Thêm mới
         await postData("/api/toppings", data);
         toast.success("Thêm topping thành công");
       } else {
-        // Cập nhật
         await putData(`/api/toppings/${selectedTopping?._id}`, data);
         toast.success("Cập nhật topping thành công");
       }
-      // Tải lại danh sách sau khi thêm/sửa
       fetchToppings();
     } catch (error) {
       console.error("Lỗi khi xử lý topping:", error);
@@ -100,7 +121,6 @@ export default function ToppingsPage() {
     }
   };
 
-  // Định nghĩa cột cho bảng
   const columns: ColumnDef<Topping>[] = [
     {
       accessorKey: "ten",
@@ -123,15 +143,6 @@ export default function ToppingsPage() {
       cell: ({ row }) => <div>{row.getValue("donViTinh")}</div>,
     },
     {
-      accessorKey: "hoatDong",
-      header: "Trạng thái",
-      cell: ({ row }) => (
-        <div className={row.getValue("hoatDong") ? "text-green-600" : "text-red-600"}>
-          {row.getValue("hoatDong") ? "Hoạt động" : "Không hoạt động"}
-        </div>
-      ),
-    },
-    {
       id: "actions",
       header: "Thao tác",
       cell: ({ row }) => {
@@ -146,11 +157,11 @@ export default function ToppingsPage() {
             >
               <SquarePen className="h-4 w-4" />
             </Button>
-
             <Button 
               variant="ghost" 
               size="icon" 
               className="cursor-pointer hover:text-destructive"
+              onClick={() => handleDeleteTopping(topping)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -247,7 +258,6 @@ export default function ToppingsPage() {
                 )}
               </TableBody>
             </Table>
-
             <div className="flex items-center justify-between p-4 border-t">
               <div className="text-sm text-muted-foreground">
                 Hiển thị {table.getRowModel().rows.length} / {toppings.length} topping
@@ -274,15 +284,43 @@ export default function ToppingsPage() {
           </div>
         </div>
       )}
-
-      {/* Dialog thêm/sửa topping */}
+      
       <ToppingDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         topping={selectedTopping}
-        onSubmit={(data) => handleSubmitTopping({...data, hoatDong: data.hoatDong ?? false})}
+        onSubmit={(data) => 
+          handleSubmitTopping({...data, hoatDong: data.hoatDong ?? false})}
         mode={dialogMode}
       />
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa topping</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa topping "{toppingToDelete?.ten}"? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setToppingToDelete(null);
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getData, postData, putData } from "@/lib/api";
+import { getData, postData, putData, deleteData } from "@/lib/api";
 import {
   Table,
   TableBody,
@@ -21,6 +21,14 @@ import { SquarePen, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import IngredientDialog from "./components/ingredients-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Ingredient {
   _id: string;
@@ -41,27 +49,21 @@ export default function IngredientsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  
-  // State cho dialog
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | undefined>(undefined);
+  const [ingredientToDelete, setIngredientToDelete] = useState<Ingredient | null>(null);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
-  
-  // State cho nhà cung cấp
   const [suppliers, setSuppliers] = useState<{ _id: string; ten: string }[]>([]);
 
-  // Lấy danh sách nguyên liệu và nhà cung cấp
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Lấy danh sách nguyên liệu
       const ingredientsResponse = await getData("/api/ingredients");
       if (ingredientsResponse.success && Array.isArray(ingredientsResponse.data)) {
         setIngredients(ingredientsResponse.data || []);
       }
       
-      // Lấy danh sách nhà cung cấp để hiển thị tên
       const suppliersResponse = await getData("/api/suppliers");
       if (suppliersResponse.success && Array.isArray(suppliersResponse.data)) {
         setSuppliers(suppliersResponse.data || []);
@@ -80,39 +82,51 @@ export default function IngredientsPage() {
     fetchData();
   }, []);
 
-  // Xử lý khi thêm nguyên liệu mới
   const handleAddIngredient = () => {
     setSelectedIngredient(undefined);
     setDialogMode("add");
     setDialogOpen(true);
   };
 
-  // Xử lý khi sửa nguyên liệu
   const handleEditIngredient = (ingredient: Ingredient) => {
     setSelectedIngredient(ingredient);
     setDialogMode("edit");
     setDialogOpen(true);
   };
 
-  // Xử lý khi submit form
-  const handleSubmitIngredient = async (data: Omit<Ingredient, '_id' | 'ngayTao' | 'ngayCapNhat'>) => {
+  const handleDeleteIngredient = (ingredient: Ingredient) => {
+    setIngredientToDelete(ingredient);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!ingredientToDelete) return;
+    
     try {
-      if (dialogMode === "add") {
-        // Thêm mới
-        await postData("/api/ingredients", data);
-      } else {
-        // Cập nhật
-        await putData(`/api/ingredients/${selectedIngredient?._id}`, data);
-      }
-      // Tải lại danh sách sau khi thêm/sửa
+      await deleteData(`/api/ingredients/${ingredientToDelete._id}`);
+      setDeleteDialogOpen(false);
+      setIngredientToDelete(null);
       fetchData();
     } catch (error) {
-      console.error("Lỗi khi xử lý nguyên liệu:", error);
-      throw error; // Ném lỗi để dialog xử lý
+      console.error("Lỗi khi xóa nguyên liệu:", error);
+      setError("Không thể xóa nguyên liệu. Vui lòng thử lại sau.");
     }
   };
 
-  // Hàm lấy tên nhà cung cấp từ ID
+  const handleSubmitIngredient = async (data: Omit<Ingredient, '_id' | 'ngayTao' | 'ngayCapNhat'>) => {
+    try {
+      if (dialogMode === "add") {
+        await postData("/api/ingredients", data);
+      } else {
+        await putData(`/api/ingredients/${selectedIngredient?._id}`, data);
+      }
+      fetchData();
+    } catch (error) {
+      console.error("Lỗi khi xử lý nguyên liệu:", error);
+      throw error;
+    }
+  };
+
   const getSupplierNames = (
     supplierData: Array<{ maNhacungCap: string; donGia: number }>
   ) => {
@@ -125,8 +139,6 @@ export default function IngredientsPage() {
     });
   };
 
-
-  // Định nghĩa cột cho bảng
   const columns: ColumnDef<Ingredient>[] = [
     {
       accessorKey: "ten",
@@ -154,20 +166,6 @@ export default function IngredientsPage() {
       },
     },
     {
-      accessorKey: "hoatDong",
-      header: "Trạng thái",
-      cell: ({ row }) => (
-        <div
-          className={`px-3 py-1 rounded text-xs font-medium w-fit 
-            ${row.getValue("hoatDong")
-              ? "text-green-700 bg-green-100" 
-              : "text-red-700 bg-red-100"}`}
-        >
-          {row.getValue("hoatDong") ? "Hoạt động" : "Không hoạt động"}
-        </div>
-      ),
-    },
-    {
       id: "actions",
       header: "Thao tác",
       cell: ({ row }) => {
@@ -187,6 +185,7 @@ export default function IngredientsPage() {
               variant="ghost" 
               size="icon" 
               className="cursor-pointer hover:text-destructive"
+              onClick={() => handleDeleteIngredient(ingredient)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -310,7 +309,6 @@ export default function IngredientsPage() {
         </div>
       )}
 
-      {/* Dialog thêm/sửa nguyên liệu */}
       <IngredientDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -319,6 +317,34 @@ export default function IngredientsPage() {
         mode={dialogMode}
         suppliers={suppliers}
       />
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa nguyên liệu</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa nguyên liệu "{ingredientToDelete?.ten}"? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setIngredientToDelete(null);
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

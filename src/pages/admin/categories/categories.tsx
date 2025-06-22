@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getData, postData, putData } from "@/lib/api";
+import { getData, postData, putData, deleteData } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Table,
@@ -22,6 +22,14 @@ import { Trash2, SquarePen, Plus, ChevronLeft, ChevronRight, CupSoda } from "luc
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import CategoryDialog from "./components/categories-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Category {
   _id: string;
@@ -37,13 +45,12 @@ export default function Categories() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  
-  // State cho dialog
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | undefined>(undefined);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
 
-  // Lấy danh sách danh mục
   const fetchCategories = async () => {
     try {
       setLoading(true);
@@ -62,33 +69,47 @@ export default function Categories() {
     fetchCategories();
   }, []);
 
-  // Xử lý khi thêm danh mục mới
   const handleAddCategory = () => {
     setSelectedCategory(undefined);
     setDialogMode("add");
     setDialogOpen(true);
   };
 
-  // Xử lý khi sửa danh mục
   const handleEditCategory = (category: Category) => {
     setSelectedCategory(category);
     setDialogMode("edit");
     setDialogOpen(true);
   };
 
-  // Xử lý khi submit form
+  const handleDeleteCategory = (category: Category) => {
+    setCategoryToDelete(category);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!categoryToDelete) return;
+
+    try {
+      await deleteData(`/api/categories/${categoryToDelete._id}`);
+      toast.success("Xóa danh mục thành công");
+      setDeleteDialogOpen(false);
+      setCategoryToDelete(null);
+      fetchCategories();
+    } catch (error) {
+      console.error("Lỗi khi xóa danh mục:", error);
+      toast.error("Có lỗi xảy ra khi xóa danh mục");
+    }
+  };
+
   const handleSubmitCategory = async (data: FormData) => {
     try {
       if (dialogMode === "add") {
-        // Thêm mới
         await postData("/api/categories", data);
         toast.success("Thêm danh mục thành công");
       } else {
-        // Cập nhật
         await putData(`/api/categories/${selectedCategory?._id}`, data);
         toast.success("Cập nhật danh mục thành công");
       }
-      // Tải lại danh sách sau khi thêm/sửa
       fetchCategories();
     } catch (error) {
       console.error("Lỗi khi xử lý danh mục:", error);
@@ -131,19 +152,7 @@ export default function Categories() {
           </div>
         );
       },      
-    },    
-    // {
-    //   accessorKey: "hinhAnh",
-    //   header: "Hình ảnh",
-    //   cell: ({ row }) => {
-    //     const hinhAnh = row.getValue("hinhAnh") as string;
-    //     return hinhAnh ? (
-    //       <img src={hinhAnh} alt="Danh mục" className="h-12 w-12 object-cover rounded" />
-    //     ) : (
-    //       <span>Không có ảnh</span>
-    //     );
-    //   },
-    // },
+    },
     {
       accessorKey: "ngayTao",
       header: "Ngày tạo",
@@ -175,6 +184,7 @@ export default function Categories() {
               variant="ghost" 
               size="icon" 
               className="cursor-pointer hover:text-destructive"
+              onClick={() => handleDeleteCategory(category)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -232,27 +242,23 @@ export default function Categories() {
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      );
-                    })}
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 ))}
               </TableHeader>
               <TableBody>
                 {table.getRowModel().rows?.length ? (
                   table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                    >
+                    <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
                           {flexRender(
@@ -302,7 +308,6 @@ export default function Categories() {
         </div>
       )}
 
-      {/* Dialog thêm/sửa danh mục */}
       <CategoryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -310,6 +315,34 @@ export default function Categories() {
         onSubmit={handleSubmitCategory}
         mode={dialogMode}
       />
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa danh mục</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa danh mục "{categoryToDelete?.ten}"? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setCategoryToDelete(null);
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
