@@ -2,9 +2,9 @@ import axios from 'axios';
 
 // Tạo instance
 const api = axios.create({
-  baseURL: 'https://forestbean.onrender.com',
-  // baseURL: 'http://localhost:5000', // Thay thế bằng URL của API của bạn
-  timeout: 30000,
+  // baseURL: 'https://forestbean.onrender.com',
+  baseURL: 'http://localhost:5000', // Thay thế bằng URL của API của bạn
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },

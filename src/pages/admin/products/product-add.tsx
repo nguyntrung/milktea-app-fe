@@ -899,7 +899,7 @@ export default function ProductAdd() {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                <div className="gap-2 hidden">
                   <Input
                     placeholder="Thêm tùy chọn mới"
                     value={newOption}

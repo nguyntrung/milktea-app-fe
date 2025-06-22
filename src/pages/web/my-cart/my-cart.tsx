@@ -760,16 +760,16 @@ export default function MyCart() {
                       Thanh toán khi nhận hàng (COD)
                     </label>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="items-center space-x-2 hidden">
                     <RadioGroupItem value="banking" id="payment-banking" />
                     <label htmlFor="payment-banking" className="text-sm font-medium cursor-pointer">
                       Chuyển khoản ngân hàng
                     </label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="momo" id="payment-momo" />
-                    <label htmlFor="payment-momo" className="text-sm font-medium cursor-pointer">
-                      Ví điện tử MoMo
+                    <RadioGroupItem value="vnpay" id="payment-vnpay" />
+                    <label htmlFor="payment-vnpay" className="text-sm font-medium cursor-pointer">
+                      Ví điện tử VNPAY
                     </label>
                   </div>
                 </RadioGroup>
