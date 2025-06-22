@@ -131,7 +131,7 @@ export default function ProductAdd() {
   // State cho dữ liệu
   const [categories, setCategories] = useState<Category[]>([]);
   const [toppings, setToppings] = useState<{ value: string; label: string }[]>([]);
-  const [ingredients, setIngredients] = useState<{ value: string; label: string }[]>([]);
+  const [ingredients, setIngredients] = useState<{ value: string; label: string; donViTinh: string }[]>([]);
   
   // State cho UI
   const [loading, setLoading] = useState(false);
@@ -200,9 +200,10 @@ export default function ProductAdd() {
         // Fetch ingredients
         const ingredientsResponse = await getData("/api/ingredients");
         if (ingredientsResponse.success && Array.isArray(ingredientsResponse.data)) {
-          const formattedIngredients = ingredientsResponse.data.map((ingredient: { _id: string; ten: string }) => ({
+          const formattedIngredients = ingredientsResponse.data.map((ingredient: { _id: string; ten: string; donViTinh: string }) => ({
             value: ingredient._id,
-            label: ingredient.ten
+            label: ingredient.ten,
+            donViTinh: ingredient.donViTinh
           }));
           setIngredients(formattedIngredients);
 
@@ -813,7 +814,7 @@ export default function ProductAdd() {
                                     )}
                                     className="h-8 w-24"
                                   />
-                                  <span className="ml-1 text-sm">gram</span>
+                                  <span className="ml-1 text-sm">{ingredients.find(i => i.value === ingredient.maNguyenLieu)?.donViTinh}</span>
                                 </div>
                               </td>
                             ))}
