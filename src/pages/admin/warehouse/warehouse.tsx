@@ -28,6 +28,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton component
 
 interface StatisticIngredient {
   maNguyenLieu: string;
@@ -361,142 +362,232 @@ export default function Warehouse() {
     },
   });
 
+  // Skeleton loading for table rows
+  const TableSkeleton = ({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) => {
+    return (
+      <>
+        {Array.from({ length: rows }).map((_, rowIndex) => (
+          <TableRow key={rowIndex}>
+            {Array.from({ length: columns }).map((_, colIndex) => (
+              <TableCell key={colIndex}>
+                <Skeleton className="h-4 w-full" />
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </>
+    );
+  };
+
   return (
-    <Card className='bg-background rounded-lg shadow-md mb-3 pb-0'>
-      <CardHeader className="mt-4">
-        <CardTitle>Quản lý nguyên liệu</CardTitle>
-        <CardDescription className="flex justify-between">
-          Quản lý kiểm kho và tạo phiếu nguyên liệu
-        </CardDescription>
-      </CardHeader>
+    <div className="space-y-4">
+      {/* Morning Check Card */}
+      <Card className='bg-background rounded-lg shadow-md'>
+        <CardHeader className="mt-4">
+          <CardTitle>Kiểm kho đầu ngày</CardTitle>
+          <CardDescription>Danh sách nguyên liệu cần kiểm tra vào đầu ngày</CardDescription>
+        </CardHeader>
 
-      <CardContent>
-        {loading && warehouseData.length === 0 ? (
-          <div className="text-center py-4">Đang tải dữ liệu...</div>
-        ) : error ? (
-          <div className="text-destructive py-4">{error}</div>
-        ) : (
-          <div className="w-full">
-            <div className="flex items-center gap-2 py-4">
-              <Input
-                placeholder="Tìm kiếm theo tên..."
-                value={(table.getColumn("ten")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                  table.getColumn("ten")?.setFilterValue(event.target.value)
-                }
-                className="max-w-sm"
-              />
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-[240px] justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon />
-                    {date ? format(date, "dd/MM/yyyy") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    disabled={{ after: new Date() }}
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button 
-                variant="default" 
-                className="ml-auto cursor-pointer"
-                onClick={handleCreateOrder}
-                disabled={getSelectedIngredients().length === 0}
-              >
-                Tạo phiếu nhập
-              </Button>
-            </div>
-
-            {/* Kiểm kho đầu ngày */}
-            <span className="text-foreground font-medium">
-              {table.getFilteredRowModel().rows.length} Nguyên liệu cần kiểm kho đầu ngày
-            </span>
-            <div className="rounded-md border mb-10">
-              <Table>
-                <TableHeader>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
+        <CardContent>
+          {loading && warehouseData.length === 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 py-4">
+                <Skeleton className="h-10 w-[300px]" />
+                <Skeleton className="h-10 w-[240px]" />
+                <Skeleton className="h-10 w-[150px] ml-auto" />
+              </div>
+              
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <TableHead key={i}>
+                          <Skeleton className="h-4 w-[100px]" />
                         </TableHead>
                       ))}
                     </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                      >
-                        Không có dữ liệu nguyên liệu
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-              <div className="flex items-center justify-between p-4 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Hiển thị {table.getRowModel().rows.length} / {warehouseData.length} nguyên liệu
-                </div>
-                <div className="space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                  >
-                    <ChevronLeft />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                  >
-                    <ChevronRight />
-                  </Button>
+                  </TableHeader>
+                  <TableBody>
+                    <TableSkeleton rows={10} columns={5} />
+                  </TableBody>
+                </Table>
+                <div className="flex items-center justify-between p-4 border-t">
+                  <Skeleton className="h-4 w-[200px]" />
+                  <div className="space-x-2">
+                    <Skeleton className="h-9 w-9" />
+                  </div>
                 </div>
               </div>
             </div>
+          ) : error ? (
+            <div className="text-destructive py-4">{error}</div>
+          ) : (
+            <div className="w-full">
+              <div className="flex items-center gap-2 py-4">
+                <Input
+                  placeholder="Tìm kiếm theo tên..."
+                  value={(table.getColumn("ten")?.getFilterValue() as string) ?? ""}
+                  onChange={(event) =>
+                    table.getColumn("ten")?.setFilterValue(event.target.value)
+                  }
+                  className="max-w-sm"
+                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-[240px] justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon />
+                      {date ? format(date, "dd/MM/yyyy") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      initialFocus
+                      disabled={{ after: new Date() }}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button 
+                  variant="default" 
+                  className="ml-auto cursor-pointer"
+                  onClick={handleCreateOrder}
+                  disabled={getSelectedIngredients().length === 0}
+                >
+                  Tạo phiếu nhập
+                </Button>
+              </div>
 
-            {/* Kiểm kho cuối ngày */}
-            <div className="mb-4">
-              <span className="text-foreground font-medium">
-                {endOfDayTable.getFilteredRowModel().rows.length} Nguyên liệu kiểm kho cuối ngày
-              </span>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableSkeleton rows={5} columns={columns.length} />
+                    ) : table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow key={row.id}>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          className="h-24 text-center"
+                        >
+                          Không có dữ liệu nguyên liệu
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                <div className="flex items-center justify-between p-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Hiển thị {table.getRowModel().rows.length} / {warehouseData.length} nguyên liệu
+                  </div>
+                  <div className="space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => table.previousPage()}
+                      disabled={!table.getCanPreviousPage()}
+                    >
+                      <ChevronLeft />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => table.nextPage()}
+                      disabled={!table.getCanNextPage()}
+                    >
+                      <ChevronRight />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* End-of-Day Check Card */}
+      <Card className='bg-background rounded-lg shadow-md'>
+        <CardHeader className="mt-4">
+          <CardTitle>Kiểm kho cuối ngày</CardTitle>
+          <CardDescription>Nhập số lượng hao hụt và kiểm kho cuối ngày</CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          {loading && endOfDayData.length === 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 py-4">
+                <Skeleton className="h-10 w-[300px]" />
+              </div>
+              
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <TableHead key={i}>
+                          <Skeleton className="h-4 w-[100px]" />
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableSkeleton rows={5} columns={8} />
+                  </TableBody>
+                </Table>
+                <div className="flex items-center justify-between p-4 border-t">
+                  <Skeleton className="h-4 w-[200px]" />
+                  <div className="space-x-2">
+                    <Skeleton className="h-9 w-9" />
+                    <Skeleton className="h-9 w-9" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2 bg-white pt-4 pb-2 sticky bottom-0">
+                <Skeleton className="h-9 w-24" />
+                <Skeleton className="h-9 w-36" />
+              </div>
+            </div>
+          ) : error ? (
+            <div className="text-destructive py-4">{error}</div>
+          ) : (
+            <div className="w-full">
               <div className="flex items-center gap-2 py-4">
                 <Input
                   placeholder="Tìm kiếm theo tên..."
@@ -507,6 +598,7 @@ export default function Warehouse() {
                   className="max-w-sm"
                 />
               </div>
+
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -526,7 +618,9 @@ export default function Warehouse() {
                     ))}
                   </TableHeader>
                   <TableBody>
-                    {endOfDayTable.getRowModel().rows?.length ? (
+                    {loading ? (
+                      <TableSkeleton rows={5} columns={endOfDayColumns.length} />
+                    ) : endOfDayTable.getRowModel().rows?.length ? (
                       endOfDayTable.getRowModel().rows.map((row) => (
                         <TableRow key={row.id}>
                           {row.getVisibleCells().map((cell) => (
@@ -587,17 +681,17 @@ export default function Warehouse() {
                 </Button>
                 <Button
                   variant="default"
-                  className="cursor-pointer w-30"
+                  className="cursor-pointer w-35"
                   onClick={handleSaveHaoHut}
                   disabled={saving || !isHaoHutChanged}
                 >
-                  <Save /> {saving ? "Đang lưu..." : "Lưu"}
+                  <Save /> {saving ? "Đang lưu..." : "Lưu kiểm kho"}
                 </Button>
               </div>
             </div>
-          </div>
-        )}
-      </CardContent>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Dialog tạo phiếu nhập */}
       <WarehouseDialog
@@ -606,6 +700,6 @@ export default function Warehouse() {
         selectedIngredients={getSelectedIngredients()}
         onSubmitSuccess={handleOrderSuccess}
       />
-    </Card>
+    </div>
   );
 }

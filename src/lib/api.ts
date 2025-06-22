@@ -2,8 +2,8 @@ import axios from 'axios';
 
 // Tạo instance
 const api = axios.create({
-  // baseURL: 'https://forestbean.onrender.com',
-  baseURL: 'http://localhost:5000', // Thay thế bằng URL của API của bạn
+  baseURL: 'https://forestbean.onrender.com',
+  // baseURL: 'http://localhost:5000', // Thay thế bằng URL của API của bạn
   timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
@@ -34,7 +34,7 @@ api.interceptors.response.use(
     // Xử lý lỗi 401 - Unauthorized
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login'; // Redirect to login
+      window.location.href = '/sign-in'; // Redirect to login
     }
     return Promise.reject(error);
   }

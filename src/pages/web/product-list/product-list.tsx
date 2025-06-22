@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProductCard from "./components/product-card";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Product {
   id: string;
@@ -16,7 +17,7 @@ interface Product {
     priceIncrease: number;
   }[];
   image?: string;
-  createdAt?: Date; // Thêm ngày tạo
+  createdAt?: Date;
 }
 
 interface ProductApiResponse {
@@ -38,15 +39,20 @@ interface ProductApiResponse {
   }[];
   tuychon: string[];
   hoatDong: boolean;
-  createdAt?: string; // Thêm ngày tạo từ API
+  createdAt?: string;
 }
 
 interface ApiResponse {
   success: boolean;
-  data: ProductApiResponse[];
+  data: {
+    products: ProductApiResponse[];
+    total: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+  };
 }
 
-// Enum cho các tùy chọn sắp xếp
 enum SortOption {
   NAME_ASC = "name_asc",
   NAME_DESC = "name_desc",
@@ -56,33 +62,22 @@ enum SortOption {
 }
 
 interface ProductListProps {
-  // API endpoint để fetch dữ liệu
   apiEndpoint?: string;
-  // Query parameters cho API (category, search, etc.) - sẽ merge với URL params
   queryParams?: Record<string, string | number>;
-  // Có tự động đọc URL search params không
   useUrlParams?: boolean;
-  // Mapping URL params sang API params (vd: category -> categoryId)
   urlParamMapping?: Record<string, string>;
-  // Title và description cho page (có thể là function để dynamic)
   title?: string | ((params: Record<string, string>) => string);
   description?: string | ((params: Record<string, string>) => string);
-  // Custom filter function để lọc products sau khi fetch
   filterFunction?: (products: Product[]) => Product[];
-  // Props cho grid layout
   gridCols?: {
     mobile: number;
     tablet: number;
     desktop: number;
     xl: number;
   };
-  // Show/hide header section
   showHeader?: boolean;
-  // Show/hide sort dropdown
   showSort?: boolean;
-  // Default sort option
   defaultSort?: SortOption;
-  // Empty state customization
   emptyState?: {
     title: string;
     description: string;
@@ -90,7 +85,6 @@ interface ProductListProps {
   };
 }
 
-// Product Card Skeleton
 const ProductSkeleton = () => (
   <Card className="overflow-hidden">
     <div className="aspect-square bg-gray-200 animate-pulse"></div>
@@ -108,7 +102,7 @@ const ProductSkeleton = () => (
 );
 
 export default function ProductList({
-  apiEndpoint = "/api/products",
+  apiEndpoint = "/api/products/paginated",
   queryParams = {},
   useUrlParams = true,
   urlParamMapping = {},
@@ -135,25 +129,23 @@ export default function ProductList({
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [sortOption, setSortOption] = useState<SortOption>(defaultSort);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
-  // Function để sắp xếp products
   const sortProducts = (products: Product[], sortBy: SortOption): Product[] => {
     const sortedProducts = [...products];
     
     switch (sortBy) {
       case SortOption.NAME_ASC:
         return sortedProducts.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-      
       case SortOption.NAME_DESC:
         return sortedProducts.sort((a, b) => b.name.localeCompare(a.name, 'vi'));
-      
       case SortOption.PRICE_ASC:
         return sortedProducts.sort((a, b) => a.price - b.price);
-      
       case SortOption.PRICE_DESC:
         return sortedProducts.sort((a, b) => b.price - a.price);
-      
       case SortOption.NEWEST:
         return sortedProducts.sort((a, b) => {
           if (!a.createdAt && !b.createdAt) return 0;
@@ -161,13 +153,11 @@ export default function ProductList({
           if (!b.createdAt) return -1;
           return b.createdAt.getTime() - a.createdAt.getTime();
         });
-      
       default:
         return sortedProducts;
     }
   };
 
-  // Effect để sắp xếp lại khi sortOption thay đổi
   useEffect(() => {
     if (originalProducts.length > 0) {
       const sorted = sortProducts(originalProducts, sortOption);
@@ -180,24 +170,20 @@ export default function ProductList({
       try {
         setLoading(true);
         
-        // Build final query parameters
-        let finalQueryParams = { ...queryParams };
+        let finalQueryParams = { ...queryParams, page, limit: 10 };
         
-        // Merge URL search params if enabled
         if (useUrlParams) {
           const urlParams: Record<string, string> = {};
           searchParams.forEach((value, key) => {
-            // Apply URL param mapping if provided
             const mappedKey = urlParamMapping[key] || key;
             urlParams[mappedKey] = value;
           });
           finalQueryParams = { ...finalQueryParams, ...urlParams };
         }
         
-        // Build API URL with query parameters
         const url = new URL(apiEndpoint, window.location.origin);
         Object.entries(finalQueryParams).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
+          if (value !== undefined && value !== null && value.toString() !== '') {
             url.searchParams.append(key, value.toString());
           }
         });
@@ -208,11 +194,11 @@ export default function ProductList({
           throw new Error("Không thể tải danh sách sản phẩm");
         }
         
-        let formattedProducts: Product[] = response.data.map((item: ProductApiResponse) => ({
+        let formattedProducts: Product[] = response.data.products.map((item: ProductApiResponse) => ({
           id: item._id,
           name: item.ten,
           price: item.giaCoBan,
-          description: item.moTa.replace(/<[^>]*>/g, ''), 
+          description: item.moTa.replace(/<[^>]*>/g, ''),
           sizes: item.luaChonSize.map(size => ({
             name: size.tenSize,
             priceIncrease: size.giaTang
@@ -221,15 +207,16 @@ export default function ProductList({
           createdAt: item.createdAt ? new Date(item.createdAt) : undefined
         }));
         
-        // Apply custom filter if provided
         if (filterFunction) {
           formattedProducts = filterFunction(formattedProducts);
         }
         
-        // Lưu original products và set sorted products
         setOriginalProducts(formattedProducts);
         const sortedProducts = sortProducts(formattedProducts, sortOption);
         setProducts(sortedProducts);
+        setTotalPages(response.data.totalPages);
+        setTotalCount(response.data.total);
+        setPage(response.data.currentPage);
       } catch (error) {
         console.error("Lỗi khi tải sản phẩm:", error);
         setError("Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.");
@@ -239,9 +226,8 @@ export default function ProductList({
     };
 
     fetchProducts();
-  }, [apiEndpoint, JSON.stringify(queryParams), searchParams, useUrlParams, JSON.stringify(urlParamMapping), filterFunction]);
+  }, [apiEndpoint, JSON.stringify(queryParams), searchParams, useUrlParams, JSON.stringify(urlParamMapping), filterFunction, page]);
 
-  // Toggle favorite
   const toggleFavorite = (productId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -256,20 +242,21 @@ export default function ProductList({
     });
   };
 
-  // Add to cart handler
   const handleAddToCart = (productId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Add your cart logic here
     console.log("Added to cart:", productId);
   };
 
-  // Handle sort change
   const handleSortChange = (value: string) => {
     setSortOption(value as SortOption);
   };
 
-  // Generate dynamic title and description
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    setSearchParams({ ...Object.fromEntries(searchParams), page: newPage.toString() });
+  };
+
   const getDisplayTitle = () => {
     if (!title) return undefined;
     if (typeof title === 'string') return title;
@@ -292,10 +279,8 @@ export default function ProductList({
     return description(urlParams);
   };
 
-  // Generate grid classes based on props
   const gridClasses = `grid grid-cols-${gridCols.mobile} sm:grid-cols-${gridCols.tablet} lg:grid-cols-${gridCols.desktop} xl:grid-cols-${gridCols.xl} gap-3 sm:gap-4 lg:gap-4`;
 
-  // Get sort option label
   const getSortLabel = (option: SortOption): string => {
     switch (option) {
       case SortOption.NAME_ASC:
@@ -346,7 +331,6 @@ export default function ProductList({
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-0 max-w-7xl py-6">
-      {/* Header Section */}
       {showHeader && (getDisplayTitle() || getDisplayDescription()) && (
         <div className="mb-6 sm:mb-4">
           {getDisplayTitle() && (
@@ -362,11 +346,10 @@ export default function ProductList({
         </div>
       )}
 
-      {/* Sort Section */}
       {showSort && products.length > 0 && (
         <div className="flex justify-between items-center mb-6">
           <div className="text-sm text-muted-foreground">
-            Hiển thị {products.length} sản phẩm
+            Hiển thị {products.length} / {totalCount} sản phẩm
           </div>
           <Select value={sortOption} onValueChange={handleSortChange}>
             <SelectTrigger className="w-[180px]">
@@ -420,7 +403,6 @@ export default function ProductList({
         </div>
       )}
       
-      {/* Products Grid */}
       <div className={gridClasses}>
         {products.length > 0 ? (
           products.map((product) => (
@@ -446,6 +428,37 @@ export default function ProductList({
           </div>
         )}
       </div>
+
+      {products.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-between p-4 border-t mt-6">
+          <div className="text-sm text-muted-foreground">
+            Hiển thị {(page - 1) * 10 + 1} - {Math.min(page * 10, totalCount)} / {totalCount} sản phẩm
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1}
+              className="cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Trang {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages}
+              className="cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

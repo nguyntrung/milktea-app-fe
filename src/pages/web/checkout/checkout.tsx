@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { postData, getData, deleteData } from "../../../lib/api";
+import { postData, getData, deleteData, putData } from "../../../lib/api";
 import { PhuongThucThanhToan, TrangThaiDonHang, TrangThaiThanhToan } from "../../../types/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AddressAutocomplete from "./address-autocomplete";
@@ -301,6 +301,51 @@ export default function Checkout() {
     return isValid;
   };
 
+  // Hàm tính điểm tích lũy (5% giá trị đơn hàng)
+  const calculateRewardPoints = (totalAmount: number): number => {
+    return Math.floor(totalAmount * 0.05); // 5% giá trị đơn hàng
+  };
+
+  // Hàm cập nhật điểm tích lũy cho người dùng
+  const updateUserRewardPoints = async (userId: string, points: number, orderId: string) => {
+    try {
+      // Lấy thông tin người dùng hiện tại
+      const userResponse = await getData(`/api/auth/${userId}`);
+      if (!userResponse.success) {
+        throw new Error("Không thể lấy thông tin người dùng");
+      }
+
+      const currentUser = userResponse.data;
+      const newPoints = (currentUser.diemTichLuy || 0) + points;
+      
+      // Tạo lịch sử điểm mới
+      const newPointHistory = {
+        loai: "cong", // có thể là "cong" hoặc "tru"
+        diem: points,
+        lyDo: `Tích điểm từ đơn hàng #${orderId}`,
+        ngayTao: new Date().toISOString()
+      };
+
+      // Cập nhật điểm tích lũy và lịch sử
+      const updateData = {
+        diemTichLuy: newPoints,
+        lichSuDiem: [...(currentUser.lichSuDiem || []), newPointHistory]
+      };
+
+      const updateResponse = await putData(`/api/auth/${userId}`, updateData);
+      
+      if (updateResponse.success) {
+        console.log(`Đã cập nhật ${points} điểm tích lũy cho người dùng ${userId}`);
+        return true;
+      } else {
+        throw new Error(updateResponse.message || "Không thể cập nhật điểm tích lũy");
+      }
+    } catch (error) {
+      console.error("Lỗi khi cập nhật điểm tích lũy:", error);
+      return false;
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (!validateForm() || !checkoutState) return;
   
@@ -349,7 +394,7 @@ export default function Checkout() {
       if (!orderResponse.success) {
         throw new Error(orderResponse.message || "Không thể tạo đơn hàng");
       }
-  
+
       const orderId = orderResponse.data._id;
   
       // Tạo chi tiết đơn hàng
@@ -374,10 +419,22 @@ export default function Checkout() {
       });
   
       await Promise.all(orderDetailPromises);
+
+      // Cập nhật điểm tích lũy cho người dùng đã đăng nhập
+      const userId = localStorage.getItem("userId");
+      if (userId && userId !== "guest") {
+        const rewardPoints = calculateRewardPoints(checkoutState.total);
+        const pointsUpdated = await updateUserRewardPoints(userId, rewardPoints, orderId);
+        
+        if (pointsUpdated) {
+          toast.success(`Bạn đã được cộng ${rewardPoints.toLocaleString('vi-VN')} điểm tích lũy!`, {
+            duration: 3000,
+          });
+        }
+      }
   
       // Xóa giỏ hàng và gửi sự kiện
       try {
-        const userId = localStorage.getItem("userId");
         console.log("Attempting to clear cart for user:", userId);
         const clearResult = await deleteData("/api/carts");
         if (clearResult.success) {

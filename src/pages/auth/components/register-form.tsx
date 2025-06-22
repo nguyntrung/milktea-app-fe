@@ -130,7 +130,7 @@ export function RegisterForm({
             alt="Google logo" 
             className="w-5 h-5"
           />
-          Đăng ký với Google
+          Đăng nhập với Google
         </Button>
       </div>
     </form>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import RelatedProducts from "./components/product-related";
 
 interface ProductSize {
   id: string;
@@ -25,6 +26,10 @@ interface Product {
   name: string;
   price: number;
   description: string;
+  maDanhMuc: {
+    _id: string;
+    ten: string;
+  }
   sizes: ProductSize[];
   images: string[];
   toppings: {
@@ -41,6 +46,10 @@ interface ProductApiResponse {
   _id: string;
   ten: string;
   moTa: string;
+  maDanhMuc: {
+    _id: string;
+    ten: string;
+  }
   giaCoBan: number;
   luaChonSize: {
     _id: string;
@@ -181,6 +190,10 @@ export default function ProductDetail() {
           name: item.ten,
           price: item.giaCoBan,
           description: item.moTa,
+          maDanhMuc: {
+            _id: item.maDanhMuc._id,
+            ten: item.maDanhMuc.ten,
+          },
           sizes: item.luaChonSize.map(size => ({
             id: size._id,
             name: size.tenSize,
@@ -342,6 +355,8 @@ export default function ProductDetail() {
     );
   }
 
+  console.log(product.maDanhMuc._id);
+
   return (
     <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 max-w-[900px] m-auto">
@@ -482,7 +497,7 @@ export default function ProductDetail() {
               <h3 className="font-medium mb-3 text-sm sm:text-base">Chọn Topping:</h3>
               <div className="space-y-3">
                 {product.toppings.map((topping, index) => (
-                  <div key={index} className="border-b border-gray-100 pb-3 last:border-b-0">
+                  <div key={index} className="border-b border-gray-100 last:border-b-0 m-0">
                     <div 
                       className="flex justify-between items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition-colors"
                       onClick={() => {
@@ -543,16 +558,10 @@ export default function ProductDetail() {
       {/* Sản phẩm liên quan */}
       <div className="mt-8 lg:mt-12">
         <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Sản phẩm liên quan</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          <div className="col-span-full text-center py-8 sm:py-12 text-gray-500">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-            </div>
-            <p className="text-sm sm:text-base">Chưa có sản phẩm liên quan</p>
-          </div>
-        </div>
+        <RelatedProducts 
+          categoryId={product.maDanhMuc._id} 
+          currentProductId={product.id} 
+        />
       </div>
     </div>
   );

@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { getData } from "@/lib/api";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Star, ChevronDown, ChevronUp } from "lucide-react";
+import { Star, Filter, ChevronDown, ChevronUp, MessageSquare, Camera } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Định nghĩa kiểu dữ liệu cho đánh giá
 interface Review {
@@ -26,9 +27,10 @@ export default function ReviewComponent() {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [customerNames, ] = useState<Record<string, string>>({});
+  const [imageModal, setImageModal] = useState<string | null>(null);
 
   // Số lượng đánh giá hiển thị ban đầu
-  const initialReviewCount = 3;
+  const initialReviewCount = 6;
 
   // Lấy dữ liệu đánh giá từ API
   useEffect(() => {
@@ -39,10 +41,6 @@ export default function ReviewComponent() {
         if (response.success && Array.isArray(response.data)) {
           setReviews(response.data);
           setFilteredReviews(response.data);
-          
-          // Lấy thông tin tên khách hàng
-          // const customerIds = [...new Set(response.data.map((review: Review) => review.maKhachHang))];
-          // await fetchCustomerNames(customerIds as string[]);
         } else {
           setError("Không thể tải danh sách đánh giá");
         }
@@ -57,31 +55,6 @@ export default function ReviewComponent() {
     fetchReviews();
   }, []);
 
-  // Lấy tên khách hàng từ API
-  // const fetchCustomerNames = async (customerIds: string[]) => {
-  //   try {
-  //     const namesMap: Record<string, string> = {};
-      
-  //     // Lấy thông tin từng khách hàng
-  //     await Promise.all(
-  //       customerIds.map(async (id) => {
-  //         try {
-  //           const response = await getData(`/api/customers/${id}`);
-  //           if (response.success && response.data) {
-  //             namesMap[id] = response.data.ten || "Khách hàng";
-  //           }
-  //         } catch (error) {
-  //           console.error(`Lỗi khi lấy thông tin khách hàng ${id}:`, error);
-  //         }
-  //       })
-  //     );
-      
-  //     setCustomerNames(namesMap);
-  //   } catch (error) {
-  //     console.error("Lỗi khi lấy thông tin khách hàng:", error);
-  //   }
-  // };
-
   // Lọc đánh giá theo số sao
   const filterByRating = (rating: number | null) => {
     setSelectedRating(rating);
@@ -92,7 +65,6 @@ export default function ReviewComponent() {
       setFilteredReviews(reviews.filter(review => review.diemDanhGia === rating));
     }
     
-    // Reset trạng thái mở rộng khi lọc
     setExpanded(false);
   };
 
@@ -100,7 +72,7 @@ export default function ReviewComponent() {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return format(date, 'dd/MM/yyyy', { locale: vi });
+      return format(date, 'dd MMMM yyyy', { locale: vi });
     } catch {
       return dateString;
     }
@@ -118,110 +90,283 @@ export default function ReviewComponent() {
       .map((_, index) => (
         <Star
           key={index}
-          className={`h-4 w-4 ${index < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+          className={`h-4 w-4 transition-colors duration-200 ${
+            index < rating ? "text-amber-400 fill-amber-400" : "text-gray-300"
+          }`}
         />
       ));
   };
+
+  // Tính thống kê đánh giá
+  const getReviewStats = () => {
+    const totalReviews = reviews.length;
+    const averageRating = totalReviews > 0 
+      ? reviews.reduce((sum, review) => sum + review.diemDanhGia, 0) / totalReviews 
+      : 0;
+    
+    const ratingCounts = [5, 4, 3, 2, 1].map(rating => ({
+      rating,
+      count: reviews.filter(review => review.diemDanhGia === rating).length,
+      percentage: totalReviews > 0 ? (reviews.filter(review => review.diemDanhGia === rating).length / totalReviews) * 100 : 0
+    }));
+
+    return { totalReviews, averageRating, ratingCounts };
+  };
+
+  const { totalReviews, averageRating, ratingCounts } = getReviewStats();
 
   // Xác định số lượng đánh giá hiển thị
   const displayedReviews = expanded
     ? filteredReviews
     : filteredReviews.slice(0, initialReviewCount);
 
-  // Kiểm tra xem có thêm đánh giá để hiển thị không
   const hasMoreReviews = filteredReviews.length > initialReviewCount;
 
+  // Loading skeleton
+  const LoadingSkeleton = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array(6).fill(0).map((_, index) => (
+        <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-pulse">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+            <div className="flex-1">
+              <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-16"></div>
+            </div>
+          </div>
+          <div className="h-20 bg-gray-200 rounded mb-4"></div>
+          <div className="flex gap-2">
+            {Array(3).fill(0).map((_, i) => (
+              <div key={i} className="w-16 h-16 bg-gray-200 rounded-lg"></div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   if (loading) {
-    return <div className="text-center py-8">Đang tải đánh giá...</div>;
+    return (
+      <div className="w-full max-w-7xl mx-auto py-12 px-4">
+        <div className="text-center mb-12">
+          <div className="h-8 bg-gray-200 rounded w-64 mx-auto mb-4 animate-pulse"></div>
+          <div className="h-4 bg-gray-200 rounded w-48 mx-auto animate-pulse"></div>
+        </div>
+        <LoadingSkeleton />
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-center py-8 text-red-500">{error}</div>;
+    return (
+      <div className="w-full max-w-7xl mx-auto py-12 px-4">
+        <div className="text-center py-16">
+          <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Không thể tải đánh giá</h3>
+          <p className="text-gray-500">{error}</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto py-8 px-4">
-      <h2 className="text-2xl font-bold text-center mb-8">Đánh Giá Từ Khách Hàng</h2>
+    <div className="w-full max-w-7xl mx-auto py-12 px-4">
+      {/* Header */}
+      <div className="text-center mb-5">
+        <h2 className="text-2xl font-bold text-gray-900">
+          Đánh Giá Từ Khách Hàng
+        </h2>
+        <p className=" text-gray-600 max-w-2xl mx-auto">
+          Khám phá những chia sẻ chân thực từ cộng đồng khách hàng của chúng tôi
+        </p>
+      </div>
+
+      {/* Review Stats */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-3xl p-8 mb-12 border border-blue-100">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+          {/* Overall Rating */}
+          <div className="text-center">
+            <div className="text-5xl font-bold text-gray-900 mb-2">
+              {averageRating.toFixed(1)}
+            </div>
+            <div className="flex justify-center mb-2">
+              {renderStars(Math.round(averageRating))}
+            </div>
+            <p className="text-gray-600">Trên {totalReviews} đánh giá</p>
+          </div>
+
+          {/* Rating Breakdown */}
+          <div className="lg:col-span-2">
+            <div className="space-y-3">
+              {ratingCounts.map(({ rating, count, percentage }) => (
+                <div key={rating} className="flex items-center gap-4">
+                  <div className="flex items-center gap-1 w-16">
+                    <span className="text-sm font-medium">{rating}</span>
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  </div>
+                  <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-amber-400 to-orange-400 rounded-full transition-all duration-700 ease-out"
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm text-gray-600 w-12">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
       
-      {/* Bộ lọc đánh giá */}
-      <div className="flex flex-wrap justify-center gap-2 mb-8">
+      {/* Filter Buttons */}
+      <div className="flex flex-wrap justify-center gap-3 mb-12">
         <button
           onClick={() => filterByRating(null)}
-          className={`px-4 py-2 rounded-full ${selectedRating === null ? "bg-primary text-white" : "bg-gray-100"}`}
+          className={`group px-6 py-3 rounded-full transition-all duration-300 flex items-center gap-2 font-medium ${
+            selectedRating === null 
+              ? "bg-primary text-white shadow-lg shadow-blue-500/25" 
+              : "bg-white text-gray-700 border border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+          }`}
         >
-          Tất cả
+          <Filter className="w-4 h-4" />
+          Tất cả ({reviews.length})
         </button>
-        {[5, 4, 3, 2, 1].map((rating) => (
-          <button
-            key={rating}
-            onClick={() => filterByRating(rating)}
-            className={`px-4 py-2 rounded-full flex items-center gap-1 ${selectedRating === rating ? "bg-primary text-white" : "bg-gray-100"}`}
-          >
-            {rating} <Star className={`h-4 w-4 ${selectedRating === rating ? "text-white" : "text-yellow-400 fill-yellow-400"}`} />
-          </button>
-        ))}
+        {[5, 4, 3, 2, 1].map((rating) => {
+          const count = reviews.filter(review => review.diemDanhGia === rating).length;
+          return (
+            <button
+              key={rating}
+              onClick={() => filterByRating(rating)}
+              className={`group px-6 py-3 rounded-full transition-all duration-300 flex items-center gap-2 font-medium ${
+                selectedRating === rating 
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25" 
+                  : "bg-white text-gray-700 border border-gray-200 hover:border-amber-300 hover:bg-amber-50"
+              }`}
+            >
+              <span>{rating}</span>
+              <Star className={`w-4 h-4 ${selectedRating === rating ? "text-white" : "text-amber-400 fill-amber-400"}`} />
+              <span className="text-sm">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       {filteredReviews.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          Không có đánh giá nào {selectedRating ? `với ${selectedRating} sao` : ""}
+        <div className="text-center py-16">
+          <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có đánh giá</h3>
+          <p className="text-gray-500">
+            {selectedRating ? `Không có đánh giá nào với ${selectedRating} sao` : "Chưa có đánh giá nào"}
+          </p>
         </div>
       ) : (
         <>
-          {/* Danh sách đánh giá */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayedReviews.map((review) => (
-              <div key={review._id} className="bg-white rounded-lg shadow-md p-6 flex flex-col">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold">{getCustomerName(review.maKhachHang)}</h3>
+          {/* Reviews Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {displayedReviews.map((review, index) => (
+              <div 
+                key={review._id} 
+                className="group bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 hover:-translate-y-1"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold">
+                    <img src="https://fsviet.com/image/data/decaltrasua/logo-tra-sua-dep.jpg" alt="" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
+                      {getCustomerName(review.maKhachHang)}
+                    </h3>
                     <p className="text-sm text-gray-500">{formatDate(review.ngayDanhGia)}</p>
                   </div>
                   <div className="flex">{renderStars(review.diemDanhGia)}</div>
                 </div>
                 
-                <p className="text-gray-700 mb-4 flex-grow">{review.noiDung}</p>
+                {/* Content */}
+                <div className="mb-4">
+                  <p className="text-gray-700 leading-relaxed line-clamp-4">{review.noiDung}</p>
+                </div>
                 
+                {/* Images */}
                 {review.hinhAnh && review.hinhAnh.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {review.hinhAnh.map((image, index) => (
-                      <div key={index} className="w-16 h-16 rounded overflow-hidden">
-                        <img 
-                          src={image.replace(/[\s`]/g, '')} // Xóa khoảng trắng và dấu ` từ URL
-                          alt={`Hình ảnh đánh giá ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://placehold.co/100x100/png?text=No+Image';
-                          }}
-                        />
+                  <div className="flex flex-wrap gap-2">
+                    {review.hinhAnh.slice(0, 3).map((image, imgIndex) => (
+                      <div key={imgIndex} className="relative group/img">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden cursor-pointer">
+                          <img 
+                            src={image.replace(/[\s`]/g, '')}
+                            alt={`Hình ảnh đánh giá ${imgIndex + 1}`}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-110"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://placehold.co/100x100/png?text=No+Image';
+                            }}
+                            onClick={() => setImageModal(image)}
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors duration-300 rounded-xl flex items-center justify-center">
+                          <Camera className="w-4 h-4 text-white opacity-0 group-hover/img:opacity-100 transition-opacity duration-300" />
+                        </div>
                       </div>
                     ))}
+                    {review.hinhAnh.length > 3 && (
+                      <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-medium">
+                        +{review.hinhAnh.length - 3}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             ))}
           </div>
 
-          {/* Nút xem thêm */}
+          {/* Load More Button */}
           {hasMoreReviews && (
-            <div className="text-center mt-8">
-              <button
+            <div className="text-center">
+              <Button
+                variant={"outline"}
                 onClick={() => setExpanded(!expanded)}
-                className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+                className="group px-8 py-4 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
-                {expanded ? (
-                  <>
-                    Thu gọn <ChevronUp className="ml-2 h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    Xem thêm <ChevronDown className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </button>
+                <span className="flex items-center gap-2">
+                  {expanded ? (
+                    <>
+                      Thu gọn
+                      <ChevronUp className="w-4 h-4 transition-transform duration-300 group-hover:-translate-y-0.5" />
+                    </>
+                  ) : (
+                    <>
+                      Xem thêm {filteredReviews.length - initialReviewCount} đánh giá
+                      <ChevronDown className="w-4 h-4 transition-transform duration-300 group-hover:translate-y-0.5" />
+                    </>
+                  )}
+                </span>
+              </Button>
             </div>
           )}
         </>
+      )}
+
+      {/* Image Modal */}
+      {imageModal && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setImageModal(null)}
+        >
+          <div className="max-w-3xl max-h-[90vh] relative">
+            <img 
+              src={imageModal.replace(/[\s`]/g, '')}
+              alt="Hình ảnh đánh giá"
+              className="w-full h-full object-contain rounded-2xl"
+            />
+            <button 
+              onClick={() => setImageModal(null)}
+              className="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors duration-300"
+            >
+              ×
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -148,7 +148,7 @@ function App() {
               </Route>
 
               {/* Catch all route - redirect to unauthorized */}
-              <Route path="*" element={<Navigate to="/unauthorized" replace />} />
+              <Route path="*" element={<Navigate to="/sign-in" replace />} />
             </Routes>
           </main>
         </div>

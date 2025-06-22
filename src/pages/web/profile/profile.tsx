@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { getData, putData } from "@/lib/api";
+import { getData, putData, postData } from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio";
 import Fallback from "@/components/ui/fallback";
-import { CalendarIcon, User, Gift, History, Edit, UserCircle, Award, Clock, Save } from "lucide-react";
+import { CalendarIcon, User, Gift, History, Edit, UserCircle, Award, Clock, Save, Lock, Shield, Eye, EyeOff } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -24,10 +24,10 @@ interface UserProfile {
   soDienThoai: string;
   diemTichLuy: number;
   lichSuDiem: Array<{
-    ngay: string;
+    thoiGian: string;
     diem: number;
-    loai: string;
-    ghiChu: string;
+    noiDung: string;
+    loaiGiaoDich: string;
   }>;
   khuyenMaiDaSuDung: Array<{
     maKhuyenMai: string;
@@ -37,6 +37,19 @@ interface UserProfile {
   }>;
   vaiTro: string;
   hoatDong: boolean;
+}
+
+// Password change state type
+interface PasswordChangeState {
+  step: 'request' | 'verify' | 'change';
+  email: string;
+  otp: string;
+  newPassword: string;
+  confirmPassword: string;
+  isLoading: boolean;
+  otpSent: boolean;
+  otpVerified: boolean;
+  countdown: number;
 }
 
 const sidebarItems = [
@@ -57,6 +70,12 @@ const sidebarItems = [
     label: "Lịch sử điểm",
     icon: Clock,
     description: "Lịch sử tích lũy và sử dụng"
+  },
+  {
+    id: "doiMatKhau",
+    label: "Đổi mật khẩu",
+    icon: Shield,
+    description: "Thay đổi mật khẩu tài khoản"
   }
 ];
 
@@ -79,6 +98,36 @@ export default function Profile() {
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Password change state
+  const [passwordState, setPasswordState] = useState<PasswordChangeState>({
+    step: 'request',
+    email: '',
+    otp: '',
+    newPassword: '',
+    confirmPassword: '',
+    isLoading: false,
+    otpSent: false,
+    otpVerified: false,
+    countdown: 0
+  });
+
+  // Password visibility state
+  const [showPassword, setShowPassword] = useState({
+    new: false,
+    confirm: false
+  });
+
+  // Countdown timer for OTP resend
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (passwordState.countdown > 0) {
+      timer = setTimeout(() => {
+        setPasswordState(prev => ({ ...prev, countdown: prev.countdown - 1 }));
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [passwordState.countdown]);
   
   // Fetch user profile
   useEffect(() => {
@@ -105,6 +154,8 @@ export default function Profile() {
             ngaySinh: response.data.ngaySinh || "",
             gioiTinh: response.data.gioiTinh || "nam"
           });
+          // Initialize password change email
+          setPasswordState(prev => ({ ...prev, email: response.data.email || "" }));
         } else {
           setError("Không thể tải thông tin người dùng");
           toast.error("Không thể tải thông tin người dùng");
@@ -127,6 +178,11 @@ export default function Profile() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
+  // Handle password input changes
+  const handlePasswordInputChange = (field: keyof PasswordChangeState, value: string) => {
+    setPasswordState(prev => ({ ...prev, [field]: value }));
+  };
+  
   // Handle date change
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
@@ -145,7 +201,8 @@ export default function Profile() {
     
     try {
       setIsSaving(true);
-      const response = await putData(`/api/auth/profile`, formData);
+      const response = await putData(`/api/auth/${user._id}`, formData);
+
       
       if (response.success) {
         setUser({
@@ -163,6 +220,140 @@ export default function Profile() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Request OTP for password change
+  const handleRequestOTP = async () => {
+    if (!passwordState.email) {
+      toast.error("Email không được để trống");
+      return;
+    }
+
+    try {
+      setPasswordState(prev => ({ ...prev, isLoading: true }));
+      
+      const response = await postData('/api/verify/auth/request-otp', {
+        email: passwordState.email
+      });
+
+      if (response.success) {
+        setPasswordState(prev => ({ 
+          ...prev, 
+          otpSent: true, 
+          step: 'verify',
+          countdown: 60
+        }));
+        toast.success("Mã OTP đã được gửi đến email của bạn");
+      } else {
+        toast.error(response.message || "Không thể gửi mã OTP");
+      }
+    } catch (error) {
+      console.error("Lỗi khi gửi OTP:", error);
+      toast.error("Đã xảy ra lỗi khi gửi mã OTP");
+    } finally {
+      setPasswordState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  // Verify OTP
+  const handleVerifyOTP = async () => {
+    if (!passwordState.otp) {
+      toast.error("Vui lòng nhập mã OTP");
+      return;
+    }
+
+    try {
+      setPasswordState(prev => ({ ...prev, isLoading: true }));
+      
+      const response = await postData('/api/verify/auth/verify-otp', {
+        email: passwordState.email,
+        otp: passwordState.otp
+      });
+
+      if (response.success) {
+        setPasswordState(prev => ({ 
+          ...prev, 
+          otpVerified: true, 
+          step: 'change'
+        }));
+        toast.success("Xác thực OTP thành công");
+      } else {
+        toast.error(response.message || "Mã OTP không đúng");
+      }
+    } catch (error) {
+      console.error("Lỗi khi xác thực OTP:", error);
+      toast.error("Đã xảy ra lỗi khi xác thực mã OTP");
+    } finally {
+      setPasswordState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  // Change password
+  const handleChangePassword = async () => {
+    if (!passwordState.newPassword || !passwordState.confirmPassword) {
+      toast.error("Vui lòng nhập đầy đủ thông tin mật khẩu");
+      return;
+    }
+
+    if (passwordState.newPassword !== passwordState.confirmPassword) {
+      toast.error("Mật khẩu xác nhận không khớp");
+      return;
+    }
+
+    if (passwordState.newPassword.length < 6) {
+      toast.error("Mật khẩu phải có ít nhất 6 ký tự");
+      return;
+    }
+
+    try {
+      setPasswordState(prev => ({ ...prev, isLoading: true }));
+      
+      const response = await postData('/api/auth/change-password', {
+        maNguoiDung: user?._id,
+        matKhauMoi: passwordState.newPassword,
+        xacNhanMatKhau: passwordState.confirmPassword
+      });
+
+      if (response.success) {
+        toast.success("Đổi mật khẩu thành công");
+        // Reset password state
+        setPasswordState({
+          step: 'request',
+          email: user?.email || '',
+          otp: '',
+          newPassword: '',
+          confirmPassword: '',
+          isLoading: false,
+          otpSent: false,
+          otpVerified: false,
+          countdown: 0
+        });
+        // Switch back to account info
+        setActiveSection('thongTin');
+      } else {
+        toast.error(response.message || "Không thể đổi mật khẩu");
+      }
+    } catch (error) {
+      console.error("Lỗi khi đổi mật khẩu:", error);
+      toast.error("Đã xảy ra lỗi khi đổi mật khẩu");
+    } finally {
+      setPasswordState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  // Reset password change process
+  const resetPasswordChange = () => {
+    setPasswordState({
+      step: 'request',
+      email: user?.email || '',
+      otp: '',
+      newPassword: '',
+      confirmPassword: '',
+      isLoading: false,
+      otpSent: false,
+      otpVerified: false,
+      countdown: 0
+    });
   };
   
   // Format date
@@ -193,6 +384,171 @@ export default function Profile() {
       </div>
     );
   }
+
+  const renderPasswordChangeContent = () => {
+    switch (passwordState.step) {
+      case 'request':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email-verify">Email xác thực</Label>
+              <Input
+                id="email-verify"
+                type="email"
+                value={passwordState.email}
+                onChange={(e) => handlePasswordInputChange('email', e.target.value)}
+                placeholder="Nhập email để nhận mã OTP"
+                className="mt-1"
+                // disabled={passwordState.isLoading}
+                disabled={true}
+              />
+            </div>
+            <Button 
+              onClick={handleRequestOTP}
+              disabled={passwordState.isLoading || !passwordState.email}
+              className="w-full cursor-pointer"
+            >
+              {passwordState.isLoading ? "Đang gửi..." : "Gửi mã OTP"}
+            </Button>
+          </div>
+        );
+
+      case 'verify':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="otp">Mã OTP</Label>
+              <Input
+                id="otp"
+                type="text"
+                value={passwordState.otp}
+                onChange={(e) => handlePasswordInputChange('otp', e.target.value)}
+                placeholder="Nhập mã OTP từ email"
+                className="mt-1"
+                disabled={passwordState.isLoading}
+                maxLength={6}
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Mã OTP đã được gửi đến: {passwordState.email}
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleVerifyOTP}
+                disabled={passwordState.isLoading || !passwordState.otp}
+                className="flex-1 cursor-pointer"
+              >
+                {passwordState.isLoading ? "Đang xác thực..." : "Xác thực OTP"}
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={passwordState.countdown > 0 ? undefined : handleRequestOTP}
+                disabled={passwordState.countdown > 0 || passwordState.isLoading}
+                className="cursor-pointer"
+              >
+                {passwordState.countdown > 0 ? `${passwordState.countdown}s` : "Gửi lại"}
+              </Button>
+            </div>
+
+            <Button
+              variant="ghost"
+              onClick={resetPasswordChange}
+              className="w-full cursor-pointer"
+            >
+              Quay lại
+            </Button>
+          </div>
+        );
+
+      case 'change':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-password">Mật khẩu mới</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="new-password"
+                  type={showPassword.new ? "text" : "password"}
+                  value={passwordState.newPassword}
+                  onChange={(e) => handlePasswordInputChange('newPassword', e.target.value)}
+                  placeholder="Nhập mật khẩu mới"
+                  disabled={passwordState.isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 cursor-pointer"
+                  onClick={() => setShowPassword(prev => ({ ...prev, new: !prev.new }))}
+                >
+                  {showPassword.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="confirm-password">Xác nhận mật khẩu mới</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="confirm-password"
+                  type={showPassword.confirm ? "text" : "password"}
+                  value={passwordState.confirmPassword}
+                  onChange={(e) => handlePasswordInputChange('confirmPassword', e.target.value)}
+                  placeholder="Xác nhận mật khẩu mới"
+                  disabled={passwordState.isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 cursor-pointer"
+                  onClick={() => setShowPassword(prev => ({ ...prev, confirm: !prev.confirm }))}
+                >
+                  {showPassword.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {passwordState.newPassword && passwordState.newPassword.length < 6 && (
+              <p className="text-sm text-destructive">Mật khẩu phải có ít nhất 6 ký tự</p>
+            )}
+
+            {passwordState.newPassword && passwordState.confirmPassword && 
+             passwordState.newPassword !== passwordState.confirmPassword && (
+              <p className="text-sm text-destructive">Mật khẩu xác nhận không khớp</p>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={resetPasswordChange}
+                className="flex-1 cursor-pointer"
+              >
+                Hủy
+              </Button>
+              <Button 
+                onClick={handleChangePassword}
+                disabled={
+                  passwordState.isLoading || 
+                  !passwordState.newPassword || 
+                  !passwordState.confirmPassword ||
+                  passwordState.newPassword !== passwordState.confirmPassword ||
+                  passwordState.newPassword.length < 6
+                }
+                className="flex-1 cursor-pointer"
+              >
+                {passwordState.isLoading ? "Đang đổi..." : "Đổi mật khẩu"}
+              </Button>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -403,11 +759,11 @@ export default function Profile() {
                   {user.lichSuDiem.map((item, index) => (
                     <div key={index} className="flex justify-between items-center p-4 border rounded-md">
                       <div>
-                        <p className="font-medium">{item.ghiChu || (item.loai === "cong" ? "Tích lũy điểm" : "Sử dụng điểm")}</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(item.ngay)}</p>
+                        <p className="font-medium">{item.noiDung || (item.loaiGiaoDich === "cong" ? "Tích lũy điểm" : "Sử dụng điểm")}</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(item.thoiGian)}</p>
                       </div>
-                      <div className={`font-bold ${item.loai === "cong" ? "text-green-600" : "text-red-600"}`}>
-                        {item.loai === "cong" ? "+" : "-"}{item.diem}
+                      <div className={`font-bold ${item.loaiGiaoDich === "cong" ? "text-green-600" : "text-red-600"}`}>
+                        {item.loaiGiaoDich === "cong" ? "+" : "-"}{item.diem}
                       </div>
                     </div>
                   ))}
@@ -418,6 +774,33 @@ export default function Profile() {
                   <p className="text-muted-foreground">Bạn chưa có lịch sử điểm nào</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        );
+
+      case "doiMatKhau":
+        return (
+          <Card>
+            <CardHeader>
+              <div className="mt-5">
+                <CardTitle>Đổi mật khẩu</CardTitle>
+                <CardDescription>
+                  {passwordState.step === 'request' && "Xác thực email để đổi mật khẩu"}
+                  {passwordState.step === 'verify' && "Nhập mã OTP để xác thực"}
+                  {passwordState.step === 'change' && "Nhập mật khẩu mới"}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Lock className="h-8 w-8 text-primary" />
+                </div>
+              </div>
+              
+              <div className="max-w-md mx-auto">
+                {renderPasswordChangeContent()}
+              </div>
             </CardContent>
           </Card>
         );
@@ -449,7 +832,13 @@ export default function Profile() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setActiveSection(item.id)}
+                    onClick={() => {
+                      setActiveSection(item.id);
+                      // Reset password state when switching sections
+                      if (item.id !== 'doiMatKhau') {
+                        resetPasswordChange();
+                      }
+                    }}
                     className={cn(
                       "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-left transition-colors",
                       activeSection === item.id
